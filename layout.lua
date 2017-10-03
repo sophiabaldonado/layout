@@ -68,14 +68,36 @@ function layout:controllerpressed(controller, button)
     self.entities[entity] = entity
     table.insert(self.entities, entity)
   end
+
+  local entity = self:getClosestEntity(controller)
+  if entity then
+    if button == 'trigger' then
+      if otherController and otherController.drag.active and otherController.activeEntity == entity then
+        -- self:beginScale(controller, entity)
+      else
+        self:beginDrag(controller, entity)
+      end
+    elseif button == 'grip' then
+      -- self:beginRotate(controller, entity)
+    end
+  end
 end
 
 function layout:controllerreleased(controller, button)
+  button = button or 'trigger'
+
   if button == 'menu' or button == 'b' then
     if self.satchel.following then
       self:positionSatchel()
       self.satchel.following = nil
     end
+  end
+
+  if button == 'trigger' then
+    -- self:endScale(controller)
+    self:endDrag(controller)
+  elseif button == 'grip' then
+    -- self:endRotate(controller)
   end
 end
 
@@ -90,7 +112,7 @@ end
 function layout:refreshControllers()
   self.controllers = {}
 
-  for _, controller in pairs(lovr.headset.getControllers()) do
+  for i, controller in ipairs(lovr.headset.getControllers()) do
     self.controllers[controller] = {
       index = i,
       object = controller,
@@ -200,6 +222,44 @@ function layout:drawEntityUI(entity)
   lovr.graphics.pop()
 end
 
+function layout:beginDrag(controller, entity)
+  local controller = self.controllers[controller]
+  local entityPosition = vector(entity.x, entity.y, entity.z)
+  controller.activeEntity = entity
+  controller.drag.active = true
+  controller.drag.offset = entityPosition - controller.currentPosition
+  controller.drag.counter = 0
+end
+
+local tmpVector = vector()
+function layout:updateDrag(controller)
+  local otherController = self:getOtherController(controller)
+  if controller.scale.active or (otherController and otherController.scale.active) then return end
+  local newPosition = controller.currentPosition + controller.drag.offset
+  local t = controller.activeEntity.transform
+  tmpVector:set(t:transformPoint(0, 0, 0))
+  tmpVector:sub(newPosition)
+  controller.drag.counter = controller.drag.counter + tmpVector:length()
+  if controller.drag.counter >= .1 then
+    controller.object:vibrate(.001)
+    controller.drag.counter = 0
+  end
+  self:updateEntityPosition(controller.activeEntity, newPosition:unpack())
+  -- self:dirty()
+end
+
+function layout:updateEntityPosition(entity, x, y, z)
+  self.entities[entity].transform:translate(x, y, z)
+end
+
+function layout:endDrag(controller)
+  self.controllers[controller].drag.active = false
+end
+
+function layout:getOtherController(controller)
+  return self.controllers[self.controllers[3 - controller.index]]
+end
+
 local newPos = vector()
 function layout:cursorPos(controller)
   local controller = self.controllers[controller]
@@ -303,6 +363,19 @@ function layout:positionSatchel()
   self.satchel.transform:origin()
   self.satchel.transform:translate(x, y, z)
   self.satchel.transform:rotate(angle, ax, ay, az)
+end
+
+function layout:getClosestEntity(controller)
+  local x, y, z = self.controllers[controller].object:getPosition()
+  local minDistance, closestEntity = math.huge, nil
+  util.each(self.entities, function(entity)
+    local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
+    if d < minDistance and self:isHoveredByController(entity, controller) then
+      minDistance = d
+      closestEntity = entity
+    end
+  end)
+  return closestEntity, math.sqrt(minDistance)
 end
 
 local transform = lovr.math.newTransform()
