@@ -10,6 +10,8 @@ function layout:init(level)
   self:loadEntityTypes()
   self:refreshControllers()
 
+  self.entities = level and level.entities or {}
+
   self.satchel = {
     active = false,
     following = nil,
@@ -31,6 +33,8 @@ function layout:draw()
   if self.satchel.active then
     self:drawSatchel()
   end
+
+  self:drawEntities()
 end
 
 function layout:controllerpressed(controller, button)
@@ -47,6 +51,9 @@ function layout:controllerpressed(controller, button)
   local hover = self:getSatchelHover(controller)
   if button == 'trigger' and hover then
     print('you added a ' .. hover)
+    local entity = self:newEntity(hover, controller)
+    self.entities[entity] = entity
+    table.insert(self.entities, entity)
   end
 end
 
@@ -70,13 +77,9 @@ end
 function layout:refreshControllers()
   self.controllers = {}
 
-  for i, controller in ipairs(lovr.headset.getControllers()) do
-    self.controllers[i] = {
-      index = i,
-      object = controller,
-      model = controller:newModel(),
-      hand = ''
-    }
+  for _, controller in pairs(lovr.headset.getControllers()) do
+    self.controllers[controller] = controller
+    table.insert(self.controllers, controller)
   end
 end
 
@@ -114,37 +117,48 @@ function layout:drawSatchel()
   lovr.graphics.pop()
 end
 
-local newPos = vector()
 function layout:drawCursors()
-  local parts = { 'leftHand', 'rightHand' }
-  local state = {}
+  for _, controller in ipairs(self.controllers) do
+    local cursor = self:cursorPos(controller)
+    x, y, z = cursor:unpack()
 
-  if self.controllers[1] then
-    x, y, z = self.controllers[1].object:getPosition()
-    angle, ax, ay, az = self.controllers[1].object:getOrientation()
-    state.leftHand = { x, y, z, angle, ax, ay, az }
-  else
-    state.leftHand = { 0, 0, 0, 0, 0, 0, 0 }
+    lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
   end
+end
 
-  if self.controllers[2] then
-    x, y, z = self.controllers[2].object:getPosition()
-    angle, ax, ay, az = self.controllers[2].object:getOrientation()
-    state.rightHand = { x, y, z, angle, ax, ay, az }
-  else
-    state.rightHand = { 0, 0, 0, 0, 0, 0, 0 }
-  end
+function layout:drawEntities()
+  util.each(self.entities, function(entity)
+    entity.model:draw(entity.transform)
+    self:drawEntityUI(entity)
+  end, ipairs)
+end
 
-  for _, part in ipairs(parts) do
-    if state[part] then
-      local x, y, z, angle, ax, ay, az = unpack(state[part])
-      local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
-      newPos:set(x, y, z):add(offset)
-      x, y, z = newPos:unpack()
+function layout:drawEntityUI(entity)
+  local r, g, b, a = 255, 255, 255, 100
+  -- if (self:isHovered(entity)) then
+  --   r, g, b = unpack(self.color[self.activeTool])
+  --   a = 200
+  -- end
 
-      lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
-    end
-  end
+  local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
+  local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
+  local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
+  lovr.graphics.push()
+  lovr.graphics.translate(entity.x, entity.y, entity.z)
+  lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
+  lovr.graphics.setColor(r, g, b, a)
+  lovr.graphics.box('line', cx, cy, cz, w, h, d)
+  lovr.graphics.setColor(255, 255, 255)
+  lovr.graphics.pop()
+end
+
+local newPos = vector()
+function layout:cursorPos(controller)
+  local x, y, z = controller:getPosition()
+  local angle, ax, ay, az = controller:getOrientation()
+  local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
+  newPos:set(x, y, z):add(offset)
+  return newPos
 end
 
 function layout:orientationToVector(angle, ax, ay, az)
@@ -156,6 +170,20 @@ function layout:orientationToVector(angle, ax, ay, az)
     cos * x + sin * cx + (1 - cos) * dot * ax,
     cos * y + sin * cy + (1 - cos) * dot * ay,
     cos * z + sin * cz + (1 - cos) * dot * az
+end
+
+function layout:newEntity(typeId, controller)
+  local entity = {}
+  local t = self.entityTypes[typeId]
+  entity.model = t.model
+  entity.scale = t.baseScale
+
+  local x, y, z = self:cursorPos(controller):unpack()
+  entity.x, entity.y, entity.z = x, y, z
+  entity.angle, entity.ax, entity.ay, entity.az = 0, 1, 0, 0
+  entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
+
+  return entity
 end
 
 function layout:loadEntityTypes()
