@@ -15,7 +15,7 @@ function layout:init(level)
   self.satchel = {
     active = false,
     following = nil,
-    itemSize = .08,
+    itemSize = .06,
     transform = lovr.math.newTransform()
   }
 
@@ -39,6 +39,7 @@ function layout:update(dt)
 end
 
 function layout:draw()
+  self:updateControllers()
   self.grid:draw()
   self:drawCursors()
 
@@ -117,13 +118,26 @@ function layout:refreshControllers()
   end
 end
 
+function layout:updateControllers()
+  util.each(self.controllers, function(controller)
+    local controller = self.controllers[controller]
+    controller.currentPosition:set(controller.object:getPosition())
+
+    if controller.drag.active then self:updateDrag(controller) end
+    if controller.rotate.active then self:updateRotate(controller) end
+    if controller.scale.active then self:updateScale(controller) end
+
+    controller.lastPosition:set(controller.currentPosition)
+  end, ipairs)
+end
+
 function layout:drawSatchel()
   if self.satchel.following then
     self:positionSatchel()
   end
 
   local count = #self.entityTypes
-  local spacing = self.satchel.itemSize * 2.5
+  local spacing = self.satchel.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
   local bx, by, bz = self.satchel.transform:transformPoint(0, 0, 0)
@@ -188,9 +202,9 @@ end
 
 local newPos = vector()
 function layout:cursorPos(controller)
-  local c = self.controllers[controller]
-  local x, y, z = c.object:getPosition()
-  local angle, ax, ay, az = c.object:getOrientation()
+  local controller = self.controllers[controller]
+  local x, y, z = controller.object:getPosition()
+  local angle, ax, ay, az = controller.object:getOrientation()
   local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
   newPos:set(x, y, z):add(offset)
   return newPos
@@ -234,7 +248,7 @@ function layout:loadEntityTypes()
       local id = file:gsub('%.%a+$', '')
       local texturePath = path .. '/' .. id .. '.png'
       local modelPath = path .. '/' .. file
-      print(modelPath)
+      -- print(modelPath)
       local model = lovr.graphics.newModel(modelPath)
       model:setTexture(texture)
 
@@ -257,7 +271,7 @@ function layout:getSatchelHover(controller)
   if not self.satchel.active then return end
 
   local count = #self.entityTypes
-  local spacing = self.satchel.itemSize * 2.5
+  local spacing = self.satchel.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
   local bx, by, bz = self.satchel.transform:transformPoint(0, 0, 0)
