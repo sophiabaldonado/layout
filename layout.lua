@@ -204,12 +204,16 @@ function layout:loadEntityTypes()
   self.entityTypes = {}
   self.satchelItemSize = .09
 
+  local texture = lovr.graphics.newTexture('models/texture1.png')
+
   for i, file in ipairs(files) do
     if file:match('%.obj$') or file:match('%.fbx$') or file:match('%.dae$') then
       local id = file:gsub('%.%a+$', '')
       local texturePath = path .. '/' .. id .. '.png'
       local modelPath = path .. '/' .. file
-      local model = lovr.filesystem.exists(texturePath) and lovr.graphics.newModel(modelPath, texturePath) or lovr.graphics.newModel(modelPath)
+      print(modelPath)
+      local model = lovr.graphics.newModel(modelPath)
+      model:setTexture(texture)
 
       local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
       local width, height, depth = maxx - minx, maxy - miny, maxz - minz
