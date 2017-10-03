@@ -31,7 +31,7 @@ function layout:update(dt)
       entity.isHovered[controller] = self:isHoveredByController(entity, controller)
       if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
         -- if not controller.drag.active and not controller.scale.active and not controller.rotate.active then
-          controller:vibrate(.002)
+          self.controllers[controller].object:vibrate(.002)
         -- end
       end
     end, ipairs)
@@ -90,7 +90,29 @@ function layout:refreshControllers()
   self.controllers = {}
 
   for _, controller in pairs(lovr.headset.getControllers()) do
-    self.controllers[controller] = controller
+    self.controllers[controller] = {
+      index = i,
+      object = controller,
+      model = controller:newModel(),
+      currentPosition = vector(),
+      lastPosition = vector(),
+      activeEntity = nil,
+      drag = {
+        active = false,
+        offset = vector(),
+        counter = 0
+      },
+      scale = {
+        active = false,
+        lastDistance = 0,
+        counter = 0
+      },
+      rotate = {
+        active = false,
+        lastRotation = quat(),
+        counter = 0
+      }
+    }
     table.insert(self.controllers, controller)
   end
 end
@@ -166,8 +188,9 @@ end
 
 local newPos = vector()
 function layout:cursorPos(controller)
-  local x, y, z = controller:getPosition()
-  local angle, ax, ay, az = controller:getOrientation()
+  local c = self.controllers[controller]
+  local x, y, z = c.object:getPosition()
+  local angle, ax, ay, az = c.object:getOrientation()
   local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
   newPos:set(x, y, z):add(offset)
   return newPos
@@ -240,7 +263,7 @@ function layout:getSatchelHover(controller)
   local bx, by, bz = self.satchel.transform:transformPoint(0, 0, 0)
   local y = spacing * (rows - 1) / 2
 
-  tmp2:set(controller:getPosition())
+  tmp2:set(self.controllers[controller].object:getPosition())
 
   for i = 1, rows do
     local x = -spacing * (perRow - 1) / 2
