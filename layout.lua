@@ -23,7 +23,19 @@ function layout:init(level)
 end
 
 function layout:update(dt)
- --
+  util.each(self.entities, function(entity)
+    entity.wasHovered = entity.wasHovered or {}
+    entity.isHovered = entity.isHovered or {}
+    util.each(self.controllers, function(controller)
+      entity.wasHovered[controller] = entity.isHovered[controller]
+      entity.isHovered[controller] = self:isHoveredByController(entity, controller)
+      if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
+        -- if not controller.drag.active and not controller.scale.active and not controller.rotate.active then
+          controller:vibrate(.002)
+        -- end
+      end
+    end, ipairs)
+  end)
 end
 
 function layout:draw()
@@ -135,10 +147,10 @@ end
 
 function layout:drawEntityUI(entity)
   local r, g, b, a = 255, 255, 255, 100
-  -- if (self:isHovered(entity)) then
-  --   r, g, b = unpack(self.color[self.activeTool])
-  --   a = 200
-  -- end
+  if (self:isHovered(entity)) then
+    -- r, g, b = unpack(self.color[self.tool])
+    a = 200
+  end
 
   local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
@@ -250,6 +262,28 @@ function layout:positionSatchel()
   self.satchel.transform:origin()
   self.satchel.transform:translate(x, y, z)
   self.satchel.transform:rotate(angle, ax, ay, az)
+end
+
+local transform = lovr.math.newTransform()
+function layout:isHoveredByController(entity, controller)
+  if not controller then return false end
+  local t = entity
+  local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
+  minx, maxx, miny, maxy, minz, maxz = t.x + minx * t.scale, t.x + maxx * t.scale, t.y + miny * t.scale, t.y + maxy * t.scale, t.z + minz * t.scale, t.z + maxz * t.scale
+  transform:origin()
+  transform:translate(t.x, t.y, t.z)
+  transform:rotate(-t.angle, t.ax, t.ay, t.az)
+  local x, y, z = self:cursorPos(controller):unpack()
+  x, y, z = transform:transformPoint(x - t.x, y - t.y, z - t.z)
+  return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
+end
+
+function layout:isHovered(entity)
+  for _, controller in ipairs(self.controllers) do
+    if self:isHoveredByController(entity, controller) then
+      return controller
+    end
+  end
 end
 
 return layout
