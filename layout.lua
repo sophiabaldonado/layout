@@ -3,6 +3,8 @@ local vector = maf.vector
 local quat = maf.quat
 local util = require 'util'
 local grid = require 'grid'
+local transform = lovr.math.newTransform()
+local rotateTransform = lovr.math.newTransform()
 
 local layout = {}
 
@@ -134,7 +136,7 @@ function layout:refreshControllers()
       },
       rotate = {
         active = false,
-        lastRotation = quat(),
+        offset = quat(),
         counter = 0
       }
     }
@@ -201,7 +203,14 @@ end
 
 function layout:drawEntities()
   util.each(self.entities, function(entity)
-    entity.model:draw(entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
+    local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
+    local cx, cy, cz = (minx + maxx) / 2 * entity.scale, (miny + maxy) / 2 * entity.scale, (minz + maxz) / 2 * entity.scale
+    lovr.graphics.push()
+    lovr.graphics.translate(entity.x + cx, entity.y + cy, entity.z + cz)
+    lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
+    lovr.graphics.translate(-entity.x - cx, -entity.y - cy, -entity.z - cz)
+    entity.model:draw(entity.x, entity.y, entity.z, entity.scale)
+    lovr.graphics.pop()
     self:drawEntityUI(entity)
   end, ipairs)
 end
@@ -218,7 +227,9 @@ function layout:drawEntityUI(entity)
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
   lovr.graphics.push()
   lovr.graphics.translate(entity.x, entity.y, entity.z)
+  lovr.graphics.translate(cx, cy, cz)
   lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
+  lovr.graphics.translate(-cx, -cy, -cz)
   lovr.graphics.setColor(r, g, b, a)
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.setColor(255, 255, 255)
@@ -311,13 +322,20 @@ function layout:beginRotate(controller, entity)
 
   controller.activeEntity = entity
   controller.rotate.active = true
-  controller.rotate.lastRotation:angleAxis(controller.object:getOrientation())
 end
 
 local tmpquat = quat()
 function layout:updateRotate(controller)
   local t = controller.activeEntity
-  local entityPosition = vector(t.x, t.y, t.z)
+
+  local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
+  local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
+  rotateTransform:origin()
+  rotateTransform:translate(t.x, t.y, t.z)
+  rotateTransform:translate(cx, cy, cz)
+  rotateTransform:rotate(t.angle, t.ax, t.ay, t.az)
+  rotateTransform:translate(-cx, -cy, -cz)
+  local entityPosition = vector(rotateTransform:transformPoint(0, 0, 0))
 
   local d1 = (controller.currentPosition - entityPosition):normalize()
   local d2 = (controller.lastPosition - entityPosition):normalize()
@@ -330,13 +348,16 @@ function layout:updateRotate(controller)
   end
 
   self:updateEntityRotation(controller.activeEntity, rotation)
-  -- self:dirty()
+-- self:dirty()
 end
 
 function layout:updateEntityRotation(entity, rotation)
   local t = entity
 	local ogRotation = quat():angleAxis(t.angle, t.ax, t.ay, t.az)
 	t.angle, t.ax, t.ay, t.az = (rotation * ogRotation):getAngleAxis()
+  local axis = vector(t.ax, t.ay, t.az)
+  axis:normalize()
+  t.ax, t.ay, t.az = axis:unpack()
 end
 
 function layout:endRotate(controller)
@@ -466,15 +487,17 @@ function layout:getClosestEntity(controller)
   return closestEntity, math.sqrt(minDistance)
 end
 
-local transform = lovr.math.newTransform()
 function layout:isHoveredByController(entity, controller)
   if not controller then return false end
   local t = entity
   local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
+  local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
   minx, maxx, miny, maxy, minz, maxz = t.x + minx * t.scale, t.x + maxx * t.scale, t.y + miny * t.scale, t.y + maxy * t.scale, t.z + minz * t.scale, t.z + maxz * t.scale
   transform:origin()
   transform:translate(t.x, t.y, t.z)
+  transform:translate(cx, cy, cz)
   transform:rotate(-t.angle, t.ax, t.ay, t.az)
+  transform:translate(-cx, -cy, -cz)
   local x, y, z = self:cursorPos(controller):unpack()
   x, y, z = transform:transformPoint(x - t.x, y - t.y, z - t.z)
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
