@@ -163,7 +163,6 @@ function layout:drawSatchel()
   local spacing = self.satchel.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
-  local bx, by, bz = self.satchel.transform:transformPoint(0, 0, 0)
   local y = spacing * (rows - 1) / 2
 
   lovr.graphics.push()
@@ -176,7 +175,9 @@ function layout:drawSatchel()
       local entityType = self.entityTypes[self.entityTypes[(i - 1) * perRow + j]]
 
       if entityType then
-        entityType.model:draw(x, y, 0, entityType.baseScale, lovr.timer.getTime() * .1, 0, 1, 0)
+        local minx, maxx, miny, maxy, minz, maxz = entityType.model:getAABB()
+        local cx, cy, cz = (minx + maxx) / 2 * entityType.baseScale, (miny + maxy) / 2 * entityType.baseScale, (minz + maxz) / 2 * entityType.baseScale
+        entityType.model:draw(x - cx, y - cy, 0 - cz, entityType.baseScale, lovr.timer.getTime() * .1, 0, 1, 0)
       end
 
       x = x + spacing
@@ -373,7 +374,9 @@ function layout:newEntity(typeId, controller)
   entity.scale = t.baseScale
 
   local x, y, z = self:cursorPos(controller):unpack()
-  entity.x, entity.y, entity.z = x, y, z
+  local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
+  local cx, cy, cz = (minx + maxx) / 2 * t.baseScale, (miny + maxy) / 2 * t.baseScale, (minz + maxz) / 2 * t.baseScale
+  entity.x, entity.y, entity.z = x - cx, y - cy, z - cz
   entity.angle, entity.ax, entity.ay, entity.az = 0, 0, 1, 0
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
 
@@ -418,19 +421,19 @@ function layout:getSatchelHover(controller)
   local spacing = self.satchel.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
-  local bx, by, bz = self.satchel.transform:transformPoint(0, 0, 0)
   local y = spacing * (rows - 1) / 2
 
-  tmp2:set(self.controllers[controller].object:getPosition())
+  tmp2:set(self:cursorPos(controller))
 
   for i = 1, rows do
     local x = -spacing * (perRow - 1) / 2
 
     for j = 1, perRow do
+      local id = self.entityTypes[(i - 1) * perRow + j]
       tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
 
-      if tmp1:distance(tmp2) < self.satchel.itemSize * 1.5 then
-        return self.entityTypes[(i - 1) * perRow + j]
+      if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
+        return id
       end
 
       x = x + spacing
