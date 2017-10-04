@@ -130,10 +130,11 @@ function layout:controllerpressed(controller, button)
 end
 
 function layout:setActiveTools()
-  self.tools.up = function() self.axisLock = { 0, 1, 0 } end
-  self.tools.left = function() self.axisLock = { 1, 0, 0 } end
-  self.tools.right = function() self.axisLock = { 0, 0, 1 } end
-  self.tools.down = function()  end
+  self.axisLock = { x = false, y = false, z = false }
+  self.tools.up = function() self.axisLock.x = not self.axisLock.x end
+  self.tools.left = function() self.axisLock.y = not self.axisLock.y end
+  self.tools.right = function() self.axisLock = not self.axisLock.z
+  self.tools.down = function() end
 end
 
 function layout:setHoverTools()
@@ -332,12 +333,16 @@ function layout:updateDrag(controller)
 end
 
 function layout:updateEntityPosition(entity, x, y, z)
-  local t = self.entities[entity]
-  if #self.axisLock > 0 then
-    adjX, adjY, adjZ = unpack(self.axisLock)
-    x, y, z = t.x + ((x - t.x) * adjX), t.y + ((y - t.y) * adjY), t.z + ((z - t.z) * adjZ)
+  local isLocked = false
+
+  for axis, locked in pairs(self.axisLock) do
+    isLocked = isLocked or locked
   end
 
+  local t = self.entities[entity]
+  x = (not isLocked or self.axisLock.x) and x or t.x
+  y = (not isLocked or self.axisLock.y) and y or t.y
+  z = (not isLocked or self.axisLock.z) and z or t.z
 	t.x, t.y, t.z = x, y, z
 end
 
