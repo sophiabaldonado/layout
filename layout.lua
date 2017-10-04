@@ -62,13 +62,7 @@ function layout:controllerpressed(controller, button)
     end
   end
 
-  local hover = self:getSatchelHover(controller)
-  if button == 'trigger' and hover then
-    print('you added a ' .. hover)
-    local entity = self:newEntity(hover, controller)
-    self.entities[entity] = entity
-    table.insert(self.entities, entity)
-  end
+  
 
   local entity = self:getClosestEntity(controller)
 	local otherController = self:getOtherController(self.controllers[controller])
@@ -82,6 +76,14 @@ function layout:controllerpressed(controller, button)
       end
     elseif button == 'grip' then
       self:beginRotate(controller, entity)
+    end
+  else
+    local hover = self:getSatchelHover(controller)
+    if button == 'trigger' and hover then
+      local entity = self:newEntity(hover, controller)
+      self.entities[entity] = entity
+      table.insert(self.entities, entity)
+      self:beginDrag(controller, entity)
     end
   end
 end
@@ -370,11 +372,11 @@ function layout:newEntity(typeId, controller)
   local entity = {}
   local t = self.entityTypes[typeId]
   entity.model = t.model
-  entity.scale = t.baseScale * 2
+  entity.scale = t.baseScale
 
   local x, y, z = self:cursorPos(controller):unpack()
   entity.x, entity.y, entity.z = x, y, z
-  entity.angle, entity.ax, entity.ay, entity.az = 0, 1, 0, 0
+  entity.angle, entity.ax, entity.ay, entity.az = 0, 0, 1, 0
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
 
   return entity
