@@ -225,6 +225,49 @@ function layout:drawEntityUI(entity)
   lovr.graphics.pop()
 end
 
+-- function layout:drawEntityUI(entity)
+--   local r, g, b, a = 255, 255, 255, 100
+--   if (self:isHovered(entity)) then
+--     -- r, g, b = unpack(self.color[self.tool])
+--     a = 200
+--   end
+--
+-- 	local lerpd = self:lerp(entity)
+--   local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
+--   local w, h, d = (maxx - minx) * lerpd.scale, (maxy - miny) * lerpd.scale, (maxz - minz) * lerpd.scale
+--   local cx, cy, cz = (maxx + minx) / 2 * lerpd.scale, (maxy + miny) / 2 * lerpd.scale, (maxz + minz) / 2 * lerpd.scale
+--   lovr.graphics.push()
+--   lovr.graphics.translate(lerpd.x, lerpd.y, lerpd.z)
+--   lovr.graphics.rotate(lerpd.angle, lerpd.ax, lerpd.ay, lerpd.az)
+--   lovr.graphics.setColor(r, g, b, a)
+--   lovr.graphics.box('line', cx, cy, cz, w, h, d)
+--   lovr.graphics.setColor(255, 255, 255)
+--   lovr.graphics.pop()
+-- end
+--
+-- function level:lerp(entity)
+--   local t = entity
+--   position:set(t.x, t.y, t.z)
+--   position:lerp(entity.lastPosition, 1 - tick.accum / tick.rate)
+--
+--   for _, controller in pairs(self.controllers) do
+--     local otherController = self:getOtherController(controller)
+--     if controller.drag.active and controller.activeEntity == entity and not controller.scale.active and (not otherController or not otherController.scale.active) then
+--       position:set(controller.object:getPosition())
+--       position:add(controller.drag.offset)
+--     end
+--   end
+--
+--   local scale = t.scale
+--   local s = scale + (entity.lastScale - scale) *  (1 - tick.accum / tick.rate)
+--
+--   local rot = quaternion():angleAxis(t.angle, t.ax, t.ay, t.az)
+--   rot:slerp(entity.lastRotation, 1 - tick.accum / tick.rate)
+--   local angle, ax, ay, az = rot:getAngleAxis()
+--
+--   return { x = position.x, y = position.y, z = position.z, scale = s, angle = angle, ax = ax, ay = ay, az = az }
+-- end
+
 function layout:beginDrag(controller, entity)
   local controller = self.controllers[controller]
   local entityPosition = vector(entity.x, entity.y, entity.z)
