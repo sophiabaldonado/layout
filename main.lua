@@ -2,7 +2,8 @@ layout = require 'layout'
 
 function lovr.load()
   layout:init()
-
+	shader = require('lighting')()
+	lovr.graphics.setShader(shader)
   lovr.graphics.setBackgroundColor(20, 20, 25)
 end
 
