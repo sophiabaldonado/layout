@@ -11,6 +11,13 @@ local layout = {}
 function layout:init(level)
   self:loadEntityTypes()
   self:refreshControllers()
+	self.colors = {
+		default = { 255, 255, 255 },
+		green = { 89, 205, 119 },
+		red = { 220, 91, 91 },
+		blue = { 57, 117, 227 }
+	}
+	self.activeColor = self.colors.default
 
   self.entities = level and level.entities or {}
 
@@ -197,7 +204,13 @@ function layout:drawCursors()
     local cursor = self:cursorPos(controller)
     x, y, z = cursor:unpack()
 
-    lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
+		if (self.activeColor ~= self.colors.default) then
+			lovr.graphics.setColor(self.activeColor)
+			lovr.graphics.sphere(x, y, z, .005, angle, ax, ay, az)
+			lovr.graphics.setColor(self.colors.default)
+		else
+			lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
+		end
   end
 end
 
@@ -216,11 +229,9 @@ function layout:drawEntities()
 end
 
 function layout:drawEntityUI(entity)
-  local r, g, b, a = 255, 255, 255, 100
-  if (self:isHovered(entity)) then
-    -- r, g, b = unpack(self.color[self.tool])
-    a = 200
-  end
+	local r, g, b = unpack(self.activeColor)
+  local a = 100
+  if (self:isHovered(entity)) then a = 200 end
 
   local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
@@ -232,7 +243,7 @@ function layout:drawEntityUI(entity)
   lovr.graphics.translate(-cx, -cy, -cz)
   lovr.graphics.setColor(r, g, b, a)
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
-  lovr.graphics.setColor(255, 255, 255)
+  lovr.graphics.setColor(self.colors.default)
   lovr.graphics.pop()
 end
 
@@ -243,6 +254,7 @@ function layout:beginDrag(controller, entity)
   controller.drag.active = true
   controller.drag.offset = entityPosition - controller.currentPosition
   controller.drag.counter = 0
+	self.activeColor = self.colors.blue
 end
 
 local tmpVector = vector()
@@ -269,6 +281,7 @@ end
 
 function layout:endDrag(controller)
   self.controllers[controller].drag.active = false
+	self.activeColor = self.colors.default
 end
 
 function layout:beginScale(controller, otherController, entity)
@@ -278,6 +291,7 @@ function layout:beginScale(controller, otherController, entity)
   controller.activeEntity = entity
   controller.scale.counter = 0
   controller.scale.lastDistance = (controller.currentPosition - otherController.currentPosition):length()
+	self.activeColor = self.colors.green
 end
 
 function layout:updateScale(controller)
@@ -315,6 +329,7 @@ function layout:endScale(controller)
   end
 
   controller.scale.active = false
+	self.activeColor = self.colors.default
 end
 
 function layout:beginRotate(controller, entity)
@@ -322,6 +337,7 @@ function layout:beginRotate(controller, entity)
 
   controller.activeEntity = entity
   controller.rotate.active = true
+	self.activeColor = self.colors.red
 end
 
 local tmpquat = quat()
@@ -362,6 +378,7 @@ end
 
 function layout:endRotate(controller)
   self.controllers[controller].rotate.active = false
+	self.activeColor = self.colors.default
 end
 
 function layout:getOtherController(controller)
