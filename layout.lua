@@ -143,7 +143,8 @@ function layout:refreshControllers()
       },
       rotate = {
         active = false,
-        offset = quat(),
+        original = quat(),
+        originalPosition = vector(),
         counter = 0
       }
     }
@@ -346,12 +347,7 @@ function layout:updateRotate(controller)
 
   local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
   local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
-  rotateTransform:origin()
-  rotateTransform:translate(t.x, t.y, t.z)
-  rotateTransform:translate(cx, cy, cz)
-  rotateTransform:rotate(t.angle, t.ax, t.ay, t.az)
-  rotateTransform:translate(-cx, -cy, -cz)
-  local entityPosition = vector(rotateTransform:transformPoint(0, 0, 0))
+  local entityPosition = vector(t.x + cx, t.y + cy, t.z + cz)
 
   local d1 = (controller.currentPosition - entityPosition):normalize()
   local d2 = (controller.lastPosition - entityPosition):normalize()
