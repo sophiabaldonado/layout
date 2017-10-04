@@ -55,9 +55,6 @@ function layout:update(dt)
         local c = self.controllers[controller]
         if not c.drag.active and not c.scale.active and not c.rotate.active then
           self.controllers[controller].object:vibrate(.002)
-          self:setHoverTools()
-        else
-          self:setDefaultTools()
         end
       end
     end, ipairs)
@@ -94,6 +91,7 @@ function layout:controllerpressed(controller, button)
     local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
     local angle, distance = util.angle(0, 0, touchx, touchy), util.distance(0, 0, touchx, touchy)
     local threshold = .2
+    while angle < 0 do angle = angle + 2 * math.pi end
     if distance >= threshold then
       if angle < math.pi / 4 then self.tools.right()
       elseif angle < 3 * math.pi / 4 then self.tools.up()
@@ -127,28 +125,6 @@ function layout:controllerpressed(controller, button)
       self:beginDrag(controller, entity)
     end
   end
-end
-
-function layout:setActiveTools()
-  self.axisLock = { x = false, y = false, z = false }
-  self.tools.up = function() self.axisLock.x = not self.axisLock.x end
-  self.tools.left = function() self.axisLock.y = not self.axisLock.y end
-  self.tools.right = function() self.axisLock = not self.axisLock.z end
-  self.tools.down = function() end
-end
-
-function layout:setHoverTools()
-  self.tools.up = function() print('copy') end
-  self.tools.left = function() print('hover left') end
-  self.tools.right = function() print('hover right') end
-  self.tools.down = function() print('delete') end
-end
-
-function layout:setDefaultTools()
-  self.tools.up = function() print('grow?') end
-  self.tools.left = function() print('undo') end
-  self.tools.right = function() print('redo') end
-  self.tools.down = function() print('shrink?') end
 end
 
 function layout:controllerreleased(controller, button)
@@ -218,6 +194,28 @@ function layout:updateControllers()
 
     controller.lastPosition:set(controller.currentPosition)
   end, ipairs)
+end
+
+function layout:setActiveTools()
+  self.axisLock = { x = false, y = false, z = false }
+  self.tools.up = function() self.axisLock.y = not self.axisLock.y end
+  self.tools.left = function() self.axisLock.x = not self.axisLock.x end
+  self.tools.right = function() self.axisLock.z = not self.axisLock.z end
+  self.tools.down = function() end
+end
+
+function layout:setHoverTools()
+  self.tools.up = function() print('copy') end
+  self.tools.left = function() print('hover left') end
+  self.tools.right = function() print('hover right') end
+  self.tools.down = function() print('delete') end
+end
+
+function layout:setDefaultTools()
+  self.tools.up = function() print('grow?') end
+  self.tools.left = function() print('undo') end
+  self.tools.right = function() print('redo') end
+  self.tools.down = function() print('shrink?') end
 end
 
 function layout:drawSatchel()
@@ -299,27 +297,28 @@ function layout:drawEntityUI(entity)
   lovr.graphics.translate(-cx, -cy, -cz)
   lovr.graphics.setColor(r, g, b, a)
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
-
+  lovr.graphics.pop()
   for axis, locked in pairs(self.axisLock) do
     if locked then
+      lovr.graphics.setLineWidth(2)
+      local x, y, z = entity.x, entity.y, entity.z
       if axis == 'x' then
         local r, g, b = unpack(self.colors.red)
-        lovr.graphics.setColor(r, g, b, 30)
-        lovr.graphics.line(cx - 10, cy, cz, cx + 10, cy, cz)
+        lovr.graphics.setColor(r, g, b, 200)
+        lovr.graphics.line(x - 10, y, z, x + 10, y, z)
       elseif axis == 'y' then
         local r, g, b = unpack(self.colors.green)
-        lovr.graphics.setColor(r, g, b, 30)
-        lovr.graphics.line(cx, cy - 10, cz, cx, cy + 10, cz)
+        lovr.graphics.setColor(r, g, b, 200)
+        lovr.graphics.line(x, y - 10, z, x, y + 10, z)
       elseif axis == 'z' then
         local r, g, b = unpack(self.colors.blue)
-        lovr.graphics.setColor(r, g, b, 30)
-        lovr.graphics.line(cx, cy, cz - 10, cx, cy, cz + 10)
+        lovr.graphics.setColor(r, g, b, 200)
+        lovr.graphics.line(x, y, z - 10, x, y, z + 10)
       end
+      lovr.graphics.setLineWidth(1)
     end
   end
-
   lovr.graphics.setColor(self.colors.default)
-  lovr.graphics.pop()
 end
 
 function layout:beginDrag(controller, entity)
@@ -333,36 +332,40 @@ function layout:beginDrag(controller, entity)
 	self.activeColor = self.colors.blue
 end
 
-local tmpVector = vector()
+local tmpVector1 = vector()
+local tmpVector2 = vector()
 function layout:updateDrag(controller)
   local otherController = self:getOtherController(controller)
   if controller.scale.active or (otherController and otherController.scale.active) then return end
   local newPosition = controller.currentPosition + controller.drag.offset
   local t = controller.activeEntity
 
-  tmpVector:set(t.x, t.y, t.z)
-  tmpVector:sub(newPosition)
-  controller.drag.counter = controller.drag.counter + tmpVector:length()
-  if controller.drag.counter >= .1 then
-    controller.object:vibrate(.001)
-    controller.drag.counter = 0
-  end
-  self:updateEntityPosition(controller.activeEntity, newPosition:unpack())
-  self:dirty()
-end
+  local delta = tmpVector1
+  delta:set(t.x, t.y, t.z)
+  newPosition:sub(delta, delta)
 
-function layout:updateEntityPosition(entity, x, y, z)
   local isLocked = false
-
   for axis, locked in pairs(self.axisLock) do
     isLocked = isLocked or locked
   end
 
-  local t = self.entities[entity]
-  x = (not isLocked or self.axisLock.x) and x or t.x
-  y = (not isLocked or self.axisLock.y) and y or t.y
-  z = (not isLocked or self.axisLock.z) and z or t.z
-	t.x, t.y, t.z = x, y, z
+  delta.x = (not isLocked or self.axisLock.x) and delta.x or 0
+  delta.y = (not isLocked or self.axisLock.y) and delta.y or 0
+  delta.z = (not isLocked or self.axisLock.z) and delta.z or 0
+
+  controller.drag.counter = controller.drag.counter + delta:length()
+  if controller.drag.counter >= .1 then
+    controller.object:vibrate(.001)
+    controller.drag.counter = 0
+  end
+
+  self:updateEntityPosition(controller.activeEntity, delta:unpack())
+  self:dirty()
+end
+
+function layout:updateEntityPosition(entity, dx, dy, dz)
+  local t = entity
+	t.x, t.y, t.z = t.x + dx, t.y + dy, t.z + dz
 end
 
 function layout:endDrag(controller)
