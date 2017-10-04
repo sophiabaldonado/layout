@@ -70,10 +70,12 @@ function layout:controllerpressed(controller, button)
   end
 
   local entity = self:getClosestEntity(controller)
+	local otherController = self:getOtherController(self.controllers[controller])
+
   if entity then
     if button == 'trigger' then
-      if otherController and otherController.drag.active and otherController.activeEntity == entity then
-        -- self:beginScale(controller, entity)
+			if otherController and otherController.drag.active and otherController.activeEntity == entity then
+        self:beginScale(controller, otherController, entity)
       else
         self:beginDrag(controller, entity)
       end
@@ -92,7 +94,7 @@ function layout:controllerreleased(controller, button)
   end
 
   if button == 'trigger' then
-    -- self:endScale(controller)
+    self:endScale(controller)
     self:endDrag(controller)
   elseif button == 'grip' then
     -- self:endRotate(controller)
@@ -141,7 +143,7 @@ end
 function layout:updateControllers()
   util.each(self.controllers, function(controller)
 		local controller = self.controllers[controller]
-    controller.currentPosition:set(controller.object:getPosition())
+		controller.currentPosition:set(controller.object:getPosition())
 
     if controller.drag.active then self:updateDrag(controller) end
     if controller.rotate.active then self:updateRotate(controller) end
@@ -255,6 +257,52 @@ function layout:endDrag(controller)
   self.controllers[controller].drag.active = false
 end
 
+function layout:beginScale(controller, otherController, entity)
+	local controller = self.controllers[controller]
+	
+  controller.scale.active = true
+  controller.activeEntity = entity
+  controller.scale.counter = 0
+  controller.scale.lastDistance = (controller.currentPosition - otherController.currentPosition):length()
+end
+
+function layout:updateScale(controller)
+	local otherController = self:getOtherController(controller)
+  local currentDistance = controller.currentPosition:distance(otherController.currentPosition)
+  local distanceRatio = (currentDistance / controller.scale.lastDistance)
+  controller.scale.counter = controller.scale.counter + math.abs(currentDistance - controller.scale.lastDistance)
+  if controller.scale.counter >= .1 then
+    controller.object:vibrate(.001)
+    otherController.object:vibrate(.001)
+    controller.scale.counter = 0
+  end
+  controller.scale.lastDistance = currentDistance
+
+  self:updateEntityScale(controller.activeEntity, distanceRatio)
+  -- self:dirty()
+end
+
+function layout:updateEntityScale(entity, scaleMultiplier)
+  local t = entity
+  t.scale = t.scale * scaleMultiplier
+end
+
+function layout:endScale(controller)
+	local controller = self.controllers[controller]
+  local otherController = self:getOtherController(controller)
+
+  if otherController then
+    otherController.scale.active = false
+    if otherController.drag.active then
+      local entity = otherController.activeEntity
+      local entityPosition = vector(entity.x, entity.y, entity.z)
+      otherController.drag.offset = entityPosition - otherController.currentPosition
+    end
+  end
+
+  controller.scale.active = false
+end
+
 function layout:getOtherController(controller)
   return self.controllers[self.controllers[3 - controller.index]]
 end
@@ -284,7 +332,7 @@ function layout:newEntity(typeId, controller)
   local entity = {}
   local t = self.entityTypes[typeId]
   entity.model = t.model
-  entity.scale = t.baseScale
+  entity.scale = t.baseScale * 2
 
   local x, y, z = self:cursorPos(controller):unpack()
   entity.x, entity.y, entity.z = x, y, z
@@ -307,7 +355,6 @@ function layout:loadEntityTypes()
       local id = file:gsub('%.%a+$', '')
       local texturePath = path .. '/' .. id .. '.png'
       local modelPath = path .. '/' .. file
-      -- print(modelPath)
       local model = lovr.graphics.newModel(modelPath)
       model:setTexture(texture)
 
