@@ -14,9 +14,13 @@ function layout:init(level)
 	self:load(defaultFilename)
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
+  self.tools = {}
+  self.axisLock = {}
+  self:setDefaultTools()
 
   self:loadEntityTypes()
   self:refreshControllers()
+
 	self.colors = {
 		default = { 255, 255, 255 },
 		green = { 89, 205, 119 },
@@ -51,6 +55,9 @@ function layout:update(dt)
         local c = self.controllers[controller]
         if not c.drag.active and not c.scale.active and not c.rotate.active then
           self.controllers[controller].object:vibrate(.002)
+          self:setHoverTools()
+        else
+          self:setDefaultTools()
         end
       end
     end, ipairs)
@@ -83,7 +90,21 @@ function layout:controllerpressed(controller, button)
   local entity = self:getClosestEntity(controller)
 	local otherController = self:getOtherController(self.controllers[controller])
 
-  if entity then
+  if button == 'touchpad' then
+    local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
+    if touchy < .2 then self.tools.down() end
+    if touchy > .8 then self.tools.up() end
+    if touchx < .2 then self.tools.left() end
+    if touchx > .8 then self.tools.right() end
+  end
+
+
+  local c = self.controllers[controller]
+  if entity and not c.drag.active and not c.scale.active and not c.rotate.active then
+    -- hover touchpad tools
+  end
+
+  if entity and not entity.locked then
     if button == 'trigger' then
 			if otherController and otherController.drag.active and otherController.activeEntity == entity then
         self:beginScale(controller, otherController, entity)
@@ -102,6 +123,27 @@ function layout:controllerpressed(controller, button)
       self:beginDrag(controller, entity)
     end
   end
+end
+
+function layout:setActiveTools()
+  self.tools.up = function() self.axisLock = { 0, 1, 0 } end
+  self.tools.left = function() self.axisLock = { 1, 0, 0 } end
+  self.tools.right = function() self.axisLock = { 0, 0, 1 } end
+  self.tools.down = function()  end
+end
+
+function layout:setHoverTools()
+  self.tools.up = function() print('copy') end
+  self.tools.left = function() print('hover left') end
+  self.tools.right = function() print('hover right') end
+  self.tools.down = function() print('delete') end
+end
+
+function layout:setDefaultTools()
+  self.tools.up = function() print('grow?') end
+  self.tools.left = function() print('undo') end
+  self.tools.right = function() print('redo') end
+  self.tools.down = function() print('shrink?') end
 end
 
 function layout:controllerreleased(controller, button)
@@ -257,6 +299,7 @@ function layout:drawEntityUI(entity)
 end
 
 function layout:beginDrag(controller, entity)
+  self:setActiveTools()
   local controller = self.controllers[controller]
   local entityPosition = vector(entity.x, entity.y, entity.z)
   controller.activeEntity = entity
@@ -272,6 +315,7 @@ function layout:updateDrag(controller)
   if controller.scale.active or (otherController and otherController.scale.active) then return end
   local newPosition = controller.currentPosition + controller.drag.offset
   local t = controller.activeEntity
+
   tmpVector:set(t.x, t.y, t.z)
   tmpVector:sub(newPosition)
   controller.drag.counter = controller.drag.counter + tmpVector:length()
@@ -285,15 +329,21 @@ end
 
 function layout:updateEntityPosition(entity, x, y, z)
   local t = self.entities[entity]
+  if #self.axisLock > 0 then
+    adjX, adjY, adjZ = unpack(self.axisLock)
+    x, y, z = t.x + ((x - t.x) * adjX), t.y + ((y - t.y) * adjY), t.z + ((z - t.z) * adjZ)
+  end
+
 	t.x, t.y, t.z = x, y, z
 end
 
 function layout:endDrag(controller)
   self.controllers[controller].drag.active = false
-	self.activeColor = self.colors.default
+  self:resetDefaults()
 end
 
 function layout:beginScale(controller, otherController, entity)
+  self:setActiveTools()
 	local controller = self.controllers[controller]
 
   controller.scale.active = true
@@ -338,10 +388,11 @@ function layout:endScale(controller)
   end
 
   controller.scale.active = false
-	self.activeColor = self.colors.default
+	self:resetDefaults()
 end
 
 function layout:beginRotate(controller, entity)
+  self:setActiveTools()
 	local controller = self.controllers[controller]
 
   controller.activeEntity = entity
@@ -377,12 +428,24 @@ function layout:updateEntityRotation(entity, rotation)
 	t.angle, t.ax, t.ay, t.az = (rotation * ogRotation):getAngleAxis()
   local axis = vector(t.ax, t.ay, t.az)
   axis:normalize()
-  t.ax, t.ay, t.az = axis:unpack()
+
+  local ax, ay, az = axis:unpack()
+  if #self.axisLock > 0 then
+    t.ax, t.ay, t.az = unpack(self.axisLock)
+  else
+    t.ax, t.ay, t.az = x, y, z
+  end
 end
 
 function layout:endRotate(controller)
   self.controllers[controller].rotate.active = false
-	self.activeColor = self.colors.default
+  self:resetDefaults()
+end
+
+function layout:resetDefaults()
+  self.activeColor = self.colors.default
+  self.axisLock = {}
+  self:setDefaultTools()
 end
 
 function layout:getOtherController(controller)
@@ -412,6 +475,7 @@ end
 
 function layout:newEntity(typeId, x, y, z)
   local entity = {}
+  entity.locked = false
   local t = self.entityTypes[typeId]
   entity.model = t.model
   entity.scale = t.baseScale
