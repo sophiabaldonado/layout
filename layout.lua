@@ -84,8 +84,6 @@ function layout:controllerpressed(controller, button)
 end
 
 function layout:controllerreleased(controller, button)
-  button = button or 'trigger'
-
   if button == 'menu' or button == 'b' then
     if self.satchel.following then
       self:positionSatchel()
@@ -142,7 +140,7 @@ end
 
 function layout:updateControllers()
   util.each(self.controllers, function(controller)
-    local controller = self.controllers[controller]
+		local controller = self.controllers[controller]
     controller.currentPosition:set(controller.object:getPosition())
 
     if controller.drag.active then self:updateDrag(controller) end
@@ -198,7 +196,7 @@ end
 
 function layout:drawEntities()
   util.each(self.entities, function(entity)
-    entity.model:draw(entity.transform)
+    entity.model:draw(entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
     self:drawEntityUI(entity)
   end, ipairs)
 end
@@ -236,8 +234,8 @@ function layout:updateDrag(controller)
   local otherController = self:getOtherController(controller)
   if controller.scale.active or (otherController and otherController.scale.active) then return end
   local newPosition = controller.currentPosition + controller.drag.offset
-  local t = controller.activeEntity.transform
-  tmpVector:set(t:transformPoint(0, 0, 0))
+  local t = controller.activeEntity
+  tmpVector:set(t.x, t.y, t.z)
   tmpVector:sub(newPosition)
   controller.drag.counter = controller.drag.counter + tmpVector:length()
   if controller.drag.counter >= .1 then
@@ -249,7 +247,8 @@ function layout:updateDrag(controller)
 end
 
 function layout:updateEntityPosition(entity, x, y, z)
-  self.entities[entity].transform:translate(x, y, z)
+  local t = self.entities[entity]
+	t.x, t.y, t.z = x, y, z
 end
 
 function layout:endDrag(controller)
