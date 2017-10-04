@@ -30,9 +30,10 @@ function layout:update(dt)
       entity.wasHovered[controller] = entity.isHovered[controller]
       entity.isHovered[controller] = self:isHoveredByController(entity, controller)
       if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
-        -- if not controller.drag.active and not controller.scale.active and not controller.rotate.active then
+        local c = self.controllers[controller]
+        if not c.drag.active and not c.scale.active and not c.rotate.active then
           self.controllers[controller].object:vibrate(.002)
-        -- end
+        end
       end
     end, ipairs)
   end)
@@ -143,7 +144,7 @@ end
 function layout:updateControllers()
   util.each(self.controllers, function(controller)
 		local controller = self.controllers[controller]
-		controller.currentPosition:set(controller.object:getPosition())
+		controller.currentPosition:set(self:cursorPos(controller.object))
 
     if controller.drag.active then self:updateDrag(controller) end
     if controller.rotate.active then self:updateRotate(controller) end
