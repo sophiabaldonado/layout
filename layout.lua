@@ -16,7 +16,8 @@ function layout:init(level)
     active = false,
     following = nil,
     itemSize = .06,
-    transform = lovr.math.newTransform()
+    transform = lovr.math.newTransform(),
+    yaw = 0
   }
 
   self.grid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
@@ -76,9 +77,9 @@ function layout:controllerpressed(controller, button)
       self:beginRotate(controller, entity)
     end
   else
-    local hover = self:getSatchelHover(controller)
+    local hover, x, y, z = self:getSatchelHover(controller)
     if button == 'trigger' and hover then
-      local entity = self:newEntity(hover, controller)
+      local entity = self:newEntity(hover, x, y, z)
       self.entities[entity] = entity
       table.insert(self.entities, entity)
       self:beginDrag(controller, entity)
@@ -177,7 +178,7 @@ function layout:drawSatchel()
       if entityType then
         local minx, maxx, miny, maxy, minz, maxz = entityType.model:getAABB()
         local cx, cy, cz = (minx + maxx) / 2 * entityType.baseScale, (miny + maxy) / 2 * entityType.baseScale, (minz + maxz) / 2 * entityType.baseScale
-        entityType.model:draw(x - cx, y - cy, 0 - cz, entityType.baseScale, lovr.timer.getTime() * .1, 0, 1, 0)
+        entityType.model:draw(x - cx, y - cy, 0 - cz, entityType.baseScale, lovr.timer.getTime() * .2, 0, 1, 0)
       end
 
       x = x + spacing
@@ -367,17 +368,16 @@ function layout:orientationToVector(angle, ax, ay, az)
     cos * z + sin * cz + (1 - cos) * dot * az
 end
 
-function layout:newEntity(typeId, controller)
+function layout:newEntity(typeId, x, y, z)
   local entity = {}
   local t = self.entityTypes[typeId]
   entity.model = t.model
   entity.scale = t.baseScale
 
-  local x, y, z = self:cursorPos(controller):unpack()
   local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
   local cx, cy, cz = (minx + maxx) / 2 * t.baseScale, (miny + maxy) / 2 * t.baseScale, (minz + maxz) / 2 * t.baseScale
   entity.x, entity.y, entity.z = x - cx, y - cy, z - cz
-  entity.angle, entity.ax, entity.ay, entity.az = 0, 0, 1, 0
+  entity.angle, entity.ax, entity.ay, entity.az = -self.satchel.yaw + lovr.timer.getTime() * .2, 0, 1, 0
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
 
   return entity
@@ -433,7 +433,7 @@ function layout:getSatchelHover(controller)
       tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
 
       if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
-        return id
+        return id, tmp1:unpack()
       end
 
       x = x + spacing
@@ -450,6 +450,7 @@ function layout:positionSatchel()
   self.satchel.transform:origin()
   self.satchel.transform:translate(x, y, z)
   self.satchel.transform:rotate(angle, ax, ay, az)
+  self.satchel.yaw = angle
 end
 
 function layout:getClosestEntity(controller)
