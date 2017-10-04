@@ -40,6 +40,10 @@ function layout:init(level)
   }
 
   self.grid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
+
+  self.tokens = {
+    { model = lovr.graphics.newModel('tools/token.obj'), texture = lovr.graphics.newTexture('tools/copy.png') }
+  }
 end
 
 function layout:update(dt)
@@ -71,6 +75,7 @@ function layout:draw()
   end
 
   self:drawEntities()
+  self:drawTokens()
 end
 
 function layout:controllerpressed(controller, button)
@@ -491,6 +496,22 @@ function layout:cursorPos(controller)
   local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
   newPos:set(x, y, z):add(offset)
   return newPos
+end
+
+local tokenPos = vector()
+function layout:drawTokens()
+  util.each(self.controllers, function(controller)
+    local x, y, z = controller:getPosition()
+    local angle, ax, ay, az = controller:getOrientation()
+    -- local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
+    local offset = vector(.2, 0, 0)
+    tokenPos:set(x, y, z):add(offset)
+    x, y, z = tokenPos:unpack()
+    for _, token in ipairs(self.tokens) do
+      token.model:draw(x, y, z, .25, angle, ax, ay, az)
+      lovr.graphics.plane(token.texture, x, y, z, .08, angle, ax, ay, az)
+    end
+  end, ipairs)
 end
 
 function layout:orientationToVector(angle, ax, ay, az)
