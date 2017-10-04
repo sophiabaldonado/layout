@@ -92,12 +92,16 @@ function layout:controllerpressed(controller, button)
 
   if button == 'touchpad' then
     local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
-    if touchy < .2 then self.tools.down() end
-    if touchy > .8 then self.tools.up() end
-    if touchx < .2 then self.tools.left() end
-    if touchx > .8 then self.tools.right() end
+    local angle, distance = util.angle(0, 0, touchx, touchy), util.distance(0, 0, touchx, touchy)
+    local threshold = .2
+    if distance >= threshold then
+      if angle < math.pi / 4 then self.tools.right()
+      elseif angle < 3 * math.pi / 4 then self.tools.up()
+      elseif angle < 5 * math.pi / 4 then self.tools.left()
+      elseif angle < 7 * math.pi / 4 then self.tools.down
+      else self.tools.right() end
+    end
   end
-
 
   local c = self.controllers[controller]
   if entity and not c.drag.active and not c.scale.active and not c.rotate.active then
