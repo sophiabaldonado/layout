@@ -80,7 +80,7 @@ function layout:controllerpressed(controller, button)
         self:beginDrag(controller, entity)
       end
     elseif button == 'grip' then
-      -- self:beginRotate(controller, entity)
+      self:beginRotate(controller, entity)
     end
   end
 end
@@ -97,7 +97,7 @@ function layout:controllerreleased(controller, button)
     self:endScale(controller)
     self:endDrag(controller)
   elseif button == 'grip' then
-    -- self:endRotate(controller)
+    self:endRotate(controller)
   end
 end
 
@@ -259,7 +259,7 @@ end
 
 function layout:beginScale(controller, otherController, entity)
 	local controller = self.controllers[controller]
-	
+
   controller.scale.active = true
   controller.activeEntity = entity
   controller.scale.counter = 0
@@ -301,6 +301,43 @@ function layout:endScale(controller)
   end
 
   controller.scale.active = false
+end
+
+function layout:beginRotate(controller, entity)
+	local controller = self.controllers[controller]
+
+  controller.activeEntity = entity
+  controller.rotate.active = true
+  controller.rotate.lastRotation:angleAxis(controller.object:getOrientation())
+end
+
+local tmpquat = quat()
+function layout:updateRotate(controller)
+  local t = controller.activeEntity
+  local entityPosition = vector(t.x, t.y, t.z)
+
+  local d1 = (controller.currentPosition - entityPosition):normalize()
+  local d2 = (controller.lastPosition - entityPosition):normalize()
+  local rotation = quat():between(d2, d1)
+
+  controller.rotate.counter = controller.rotate.counter + (controller.currentPosition - controller.lastPosition):length()
+  if controller.rotate.counter >= .1 then
+    controller.object:vibrate(.001)
+    controller.rotate.counter = 0
+  end
+
+  self:updateEntityRotation(controller.activeEntity, rotation)
+  -- self:dirty()
+end
+
+function layout:updateEntityRotation(entity, rotation)
+  local t = entity
+	local ogRotation = quat():angleAxis(t.angle, t.ax, t.ay, t.az)
+	t.angle, t.ax, t.ay, t.az = (rotation * ogRotation):getAngleAxis()
+end
+
+function layout:endRotate(controller)
+  self.controllers[controller].rotate.active = false
 end
 
 function layout:getOtherController(controller)
