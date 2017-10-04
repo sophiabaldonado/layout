@@ -3,12 +3,18 @@ local vector = maf.vector
 local quat = maf.quat
 local util = require 'util'
 local grid = require 'grid'
+local json = require('json')
+local defaultFilename = 'default.json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
 local layout = {}
 
 function layout:init(level)
+	self:load(defaultFilename)
+	self.isDirty = false
+	self.lastChange = lovr.timer.getTime()
+
   self:loadEntityTypes()
   self:refreshControllers()
 	self.colors = {
@@ -19,7 +25,7 @@ function layout:init(level)
 	}
 	self.activeColor = self.colors.default
 
-  self.entities = level and level.entities or {}
+	self.entities = level and level.entities or {}
 
   self.satchel = {
     active = false,
@@ -33,6 +39,8 @@ function layout:init(level)
 end
 
 function layout:update(dt)
+	self:checkSave()
+
   util.each(self.entities, function(entity)
     entity.wasHovered = entity.wasHovered or {}
     entity.isHovered = entity.isHovered or {}
@@ -272,7 +280,7 @@ function layout:updateDrag(controller)
     controller.drag.counter = 0
   end
   self:updateEntityPosition(controller.activeEntity, newPosition:unpack())
-  -- self:dirty()
+  self:dirty()
 end
 
 function layout:updateEntityPosition(entity, x, y, z)
@@ -308,7 +316,7 @@ function layout:updateScale(controller)
   controller.scale.lastDistance = currentDistance
 
   self:updateEntityScale(controller.activeEntity, distanceRatio)
-  -- self:dirty()
+  self:dirty()
 end
 
 function layout:updateEntityScale(entity, scaleMultiplier)
@@ -360,7 +368,7 @@ function layout:updateRotate(controller)
   end
 
   self:updateEntityRotation(controller.activeEntity, rotation)
--- self:dirty()
+  self:dirty()
 end
 
 function layout:updateEntityRotation(entity, rotation)
@@ -522,6 +530,40 @@ function layout:isHovered(entity)
       return controller
     end
   end
+end
+
+function layout:checkSave()
+  if self.isDirty and lovr.timer.getTime() - self.lastChange > 3 then
+    self:save()
+    self.isDirty = false
+  end
+end
+
+function layout:dirty()
+  self.isDirty = true
+  self.lastChange = lovr.timer.getTime()
+end
+
+function layout:save()
+	local saveData = {}
+	local name = self.filename ~= defaultFilename and self.filename or 'levels/layout.json'
+  saveData.entities = {}
+
+  for i, entity in ipairs(self.entities) do
+    saveData.entities[i] = {
+      transform = { entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az },
+      entityType = self.entityTypes[i]
+    }
+  end
+
+	lovr.filesystem.createDirectory('levels')
+  lovr.filesystem.write(name, json.encode(saveData))
+end
+
+function layout:load(filename)
+  self.filename = filename
+  filename = lovr.filesystem.exists(filename) and filename or defaultFilename
+  self.data = json.decode(lovr.filesystem.read(filename))
 end
 
 return layout
