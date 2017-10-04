@@ -62,8 +62,6 @@ function layout:controllerpressed(controller, button)
     end
   end
 
-  
-
   local entity = self:getClosestEntity(controller)
 	local otherController = self:getOtherController(self.controllers[controller])
 
