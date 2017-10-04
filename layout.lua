@@ -15,7 +15,7 @@ function layout:init(level)
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
-  self.axisLock = {}
+  self.axisLock = { x = false, y = false, z = false }
   self:setDefaultTools()
 
   self:loadEntityTypes()
@@ -98,7 +98,7 @@ function layout:controllerpressed(controller, button)
       if angle < math.pi / 4 then self.tools.right()
       elseif angle < 3 * math.pi / 4 then self.tools.up()
       elseif angle < 5 * math.pi / 4 then self.tools.left()
-      elseif angle < 7 * math.pi / 4 then self.tools.down
+      elseif angle < 7 * math.pi / 4 then self.tools.down()
       else self.tools.right() end
     end
   end
@@ -133,7 +133,7 @@ function layout:setActiveTools()
   self.axisLock = { x = false, y = false, z = false }
   self.tools.up = function() self.axisLock.x = not self.axisLock.x end
   self.tools.left = function() self.axisLock.y = not self.axisLock.y end
-  self.tools.right = function() self.axisLock = not self.axisLock.z
+  self.tools.right = function() self.axisLock = not self.axisLock.z end
   self.tools.down = function() end
 end
 
@@ -299,6 +299,25 @@ function layout:drawEntityUI(entity)
   lovr.graphics.translate(-cx, -cy, -cz)
   lovr.graphics.setColor(r, g, b, a)
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
+
+  for axis, locked in pairs(self.axisLock) do
+    if locked then
+      if axis == 'x' then
+        local r, g, b = unpack(self.colors.red)
+        lovr.graphics.setColor(r, g, b, 30)
+        lovr.graphics.line(cx - 10, cy, cz, cx + 10, cy, cz)
+      elseif axis == 'y' then
+        local r, g, b = unpack(self.colors.green)
+        lovr.graphics.setColor(r, g, b, 30)
+        lovr.graphics.line(cx, cy - 10, cz, cx, cy + 10, cz)
+      elseif axis == 'z' then
+        local r, g, b = unpack(self.colors.blue)
+        lovr.graphics.setColor(r, g, b, 30)
+        lovr.graphics.line(cx, cy, cz - 10, cx, cy, cz + 10)
+      end
+    end
+  end
+
   lovr.graphics.setColor(self.colors.default)
   lovr.graphics.pop()
 end
