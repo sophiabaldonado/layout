@@ -13,5 +13,7 @@ for bpy_data_iter in (
         bpy_data_iter.remove(id_data, do_unlink=True)
 
 bpy.ops.import_scene.obj(filepath="/Users/bjorn/Documents/dev/ssw_layout/models/" + model)
-bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+for ob in bpy.data.objects:
+    ob.select = True
+bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
 bpy.ops.export_scene.obj(filepath="/Users/bjorn/output/" + model)
