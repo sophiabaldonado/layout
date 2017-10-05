@@ -4,7 +4,6 @@ function lovr.load()
   layout:init()
 	shader = require('lighting')()
 	lovr.graphics.setShader(shader)
-  lovr.graphics.setBackgroundColor(20, 20, 25)
 end
 
 function lovr.update(dt)
@@ -12,6 +11,12 @@ function lovr.update(dt)
 end
 
 function lovr.draw()
+	if layout.active then
+		lovr.graphics.setBackgroundColor(20, 20, 25)
+	else
+		lovr.graphics.setBackgroundColor(50, 50, 80)
+	end
+
   layout:draw()
 end
 

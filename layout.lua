@@ -29,6 +29,9 @@ function layout:init(level)
 	}
 	self.activeColor = self.colors.default
 
+  self.active = true
+  self.toolTextureName = self.active and 'play' or 'stop'
+
 	self.entities = level and level.entities or {}
 
   self.satchel = {
@@ -49,53 +52,87 @@ end
 function layout:update(dt)
 	self:checkSave()
 
-  util.each(self.entities, function(entity)
-    entity.wasHovered = entity.wasHovered or {}
-    entity.isHovered = entity.isHovered or {}
-    util.each(self.controllers, function(controller)
-      entity.wasHovered[controller] = entity.isHovered[controller]
-      entity.isHovered[controller] = self:isHoveredByController(entity, controller)
-      if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
-        local c = self.controllers[controller]
-        if not c.drag.active and not c.scale.active and not c.rotate.active then
-          self.controllers[controller].object:vibrate(.002)
+  if self.active then
+		local hasHover, hasActive = false, false
+
+    util.each(self.entities, function(entity)
+      entity.wasHovered = entity.wasHovered or {}
+      entity.isHovered = entity.isHovered or {}
+      util.each(self.controllers, function(controller)
+				local c = self.controllers[controller]
+
+        entity.wasHovered[controller] = entity.isHovered[controller]
+        entity.isHovered[controller] = self:isHoveredByController(entity, controller)
+				hasHover = hasHover or (entity.isHovered[controller])
+
+        if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
+          if not c.drag.active and not c.scale.active and not c.rotate.active then
+            self.controllers[controller].object:vibrate(.002)
+          end
         end
-      end
-    end, ipairs)
-  end)
+
+				hasActive = hasActive or (c.drag.active or c.scale.active or c.rotate.active)
+      end, ipairs)
+    end)
+
+		if hasActive then
+			self:setActiveTools()
+		elseif hasHover then
+			self:setHoverTools()
+		else
+			self:setDefaultTools()
+		end
+	else
+		self.satchel.active = false
+		self.satchel.following = nil
+	end
 end
 
 function layout:draw()
   self:updateControllers()
-  self.grid:draw()
-  self:drawCursors()
 
-  if self.satchel.active then
-    self:drawSatchel()
-  end
+	self.grid:draw()
+
+	if self.active then
+		self:drawCursors()
+
+		if self.satchel.active then
+			self:drawSatchel()
+		end
+	end
+
+	for i, controller in ipairs(self.controllers) do
+		local c = self.controllers[controller]
+		local x, y, z = controller:getPosition()
+		lovr.graphics.setColor(255, 255, 255)
+		c.model:draw(x, y, z, 1, controller:getOrientation())
+	end
 
   self:drawEntities()
-  self:drawTokens()
+	self:drawToolUI()
+end
+
+function layout:drawToolUI()
+  local toolTexturePath = self.toolTextureName..'.png'
+  local toolTexture = lovr.graphics.newTexture(toolTexturePath)
+
+	lovr.graphics.setColor(255, 255, 255)
+  util.each(self.controllers, function(controller)
+    local x, y, z = controller:getPosition()
+    local angle, ax, ay, az = controller:getOrientation()
+		lovr.graphics.push()
+		lovr.graphics.translate(x, y, z)
+		lovr.graphics.rotate(angle, ax, ay, az)
+    lovr.graphics.plane(toolTexture, 0, .01, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
+		lovr.graphics.pop()
+  end, ipairs)
 end
 
 function layout:controllerpressed(controller, button)
-  if button == 'menu' or button == 'b' then
-    if not self.satchel.active then
-      self.satchel.active = true
-      self.satchel.following = controller
-    else
-      self.satchel.active = false
-      self.satchel.following = nil
-    end
-  end
-
-  local entity = self:getClosestEntity(controller)
-	local otherController = self:getOtherController(self.controllers[controller])
-
   if button == 'touchpad' then
     local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
     local angle, distance = util.angle(0, 0, touchx, touchy), util.distance(0, 0, touchx, touchy)
-    local threshold = .2
+    local threshold = 0
     while angle < 0 do angle = angle + 2 * math.pi end
     if distance >= threshold then
       if angle < math.pi / 4 then self.tools.right()
@@ -106,29 +143,47 @@ function layout:controllerpressed(controller, button)
     end
   end
 
-  local c = self.controllers[controller]
-  if entity and not c.drag.active and not c.scale.active and not c.rotate.active then
-    -- hover touchpad tools
-  end
+  if self.active then
 
-  if entity and not entity.locked then
-    if button == 'trigger' then
-			if otherController and otherController.drag.active and otherController.activeEntity == entity then
-        self:beginScale(controller, otherController, entity)
+    if button == 'menu' or button == 'b' then
+      if not self.satchel.active then
+        self.satchel.active = true
+        self.satchel.following = controller
       else
+        self.satchel.active = false
+        self.satchel.following = nil
+      end
+    end
+
+    local entity = self:getClosestEntity(controller)
+  	local otherController = self:getOtherController(self.controllers[controller])
+
+    local c = self.controllers[controller]
+    if entity and not c.drag.active and not c.scale.active and not c.rotate.active then
+      -- hover touchpad tools
+    end
+
+    if entity and not entity.locked then
+      if button == 'trigger' then
+  			if otherController and otherController.drag.active and otherController.activeEntity == entity then
+          self:beginScale(controller, otherController, entity)
+        else
+          self:beginDrag(controller, entity)
+        end
+      elseif button == 'grip' then
+        self:beginRotate(controller, entity)
+      end
+    else
+      local hover, x, y, z = self:getSatchelHover(controller)
+      if button == 'trigger' and hover then
+        local entity = self:newEntity(hover, x, y, z)
+				print(hover)
+        self.entities[entity] = entity
+        table.insert(self.entities, entity)
         self:beginDrag(controller, entity)
       end
-    elseif button == 'grip' then
-      self:beginRotate(controller, entity)
     end
-  else
-    local hover, x, y, z = self:getSatchelHover(controller)
-    if button == 'trigger' and hover then
-      local entity = self:newEntity(hover, x, y, z)
-      self.entities[entity] = entity
-      table.insert(self.entities, entity)
-      self:beginDrag(controller, entity)
-    end
+
   end
 end
 
@@ -163,7 +218,7 @@ function layout:refreshControllers()
     self.controllers[controller] = {
       index = i,
       object = controller,
-      model = controller:newModel(),
+      model = lovr.graphics.newModel('tools/controller.obj', 'tools/controller.png'),
       currentPosition = vector(),
       lastPosition = vector(),
       activeEntity = nil,
@@ -202,25 +257,44 @@ function layout:updateControllers()
 end
 
 function layout:setActiveTools()
-  self.axisLock = { x = false, y = false, z = false }
   self.tools.up = function() self.axisLock.y = not self.axisLock.y end
   self.tools.left = function() self.axisLock.x = not self.axisLock.x end
   self.tools.right = function() self.axisLock.z = not self.axisLock.z end
   self.tools.down = function() end
+
+  self.toolTextureName = 'active'
 end
 
 function layout:setHoverTools()
+	local function deleteHovered()
+		for i = #self.entities, 1, -1 do
+			local entity = self.entities[i]
+			if self:isHovered(entity) then
+				self:removeEntity(entity)
+			end
+		end
+	end
+
   self.tools.up = function() print('copy') end
   self.tools.left = function() print('hover left') end
   self.tools.right = function() print('hover right') end
-  self.tools.down = function() print('delete') end
+  self.tools.down = function() deleteHovered() end
+
+  self.toolTextureName = 'hover'
 end
 
 function layout:setDefaultTools()
-  self.tools.up = function() print('grow?') end
-  self.tools.left = function() print('undo') end
-  self.tools.right = function() print('redo') end
-  self.tools.down = function() print('shrink?') end
+	local function toggleActive()
+		self.active = not self.active
+		self.toolTextureName = self.active and 'play' or 'stop'
+	end
+
+  self.tools.up = function() toggleActive() end
+  self.tools.left = function() toggleActive() end
+  self.tools.right = function() toggleActive() end
+  self.tools.down = function() toggleActive() end
+
+	self.toolTextureName = self.active and 'play' or 'stop'
 end
 
 function layout:drawSatchel()
@@ -283,7 +357,8 @@ function layout:drawEntities()
     lovr.graphics.translate(-entity.x - cx, -entity.y - cy, -entity.z - cz)
     entity.model:draw(entity.x, entity.y, entity.z, entity.scale)
     lovr.graphics.pop()
-    self:drawEntityUI(entity)
+
+    if self.active then self:drawEntityUI(entity) end
   end, ipairs)
 end
 
@@ -300,7 +375,11 @@ function layout:drawEntityUI(entity)
   lovr.graphics.translate(cx, cy, cz)
   lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
   lovr.graphics.translate(-cx, -cy, -cz)
-  lovr.graphics.setColor(r, g, b, a)
+	if self:isHovered(entity) then
+		lovr.graphics.setColor(r, g, b, a)
+	else
+		lovr.graphics.setColor(255, 255, 255, a)
+	end
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.pop()
   for axis, locked in pairs(self.axisLock) do
@@ -327,6 +406,7 @@ function layout:drawEntityUI(entity)
 end
 
 function layout:beginDrag(controller, entity)
+  self.axisLock = { x = false, y = false, z = false }
   self:setActiveTools()
   local controller = self.controllers[controller]
   local entityPosition = vector(entity.x, entity.y, entity.z)
@@ -334,7 +414,7 @@ function layout:beginDrag(controller, entity)
   controller.drag.active = true
   controller.drag.offset = entityPosition - controller.currentPosition
   controller.drag.counter = 0
-	self.activeColor = self.colors.blue
+	self.activeColor = self.colors.green
 end
 
 local tmpVector1 = vector()
@@ -386,7 +466,7 @@ function layout:beginScale(controller, otherController, entity)
   controller.activeEntity = entity
   controller.scale.counter = 0
   controller.scale.lastDistance = (controller.currentPosition - otherController.currentPosition):length()
-	self.activeColor = self.colors.green
+	self.activeColor = self.colors.blue
 end
 
 function layout:updateScale(controller)
@@ -464,13 +544,7 @@ function layout:updateEntityRotation(entity, rotation)
 	t.angle, t.ax, t.ay, t.az = (rotation * ogRotation):getAngleAxis()
   local axis = vector(t.ax, t.ay, t.az)
   axis:normalize()
-
-  local ax, ay, az = axis:unpack()
-  if #self.axisLock > 0 then
-    t.ax, t.ay, t.az = unpack(self.axisLock)
-  else
-    t.ax, t.ay, t.az = x, y, z
-  end
+	t.ax, t.ay, t.az = axis:unpack()
 end
 
 function layout:endRotate(controller)
@@ -539,6 +613,17 @@ function layout:newEntity(typeId, x, y, z)
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
 
   return entity
+end
+
+function layout:removeEntity(entity)
+	for i = 1, #self.entities do
+		if self.entities[i] == entity then
+			table.remove(self.entities, i)
+			break
+		end
+	end
+
+	self.entities[entity] = nil
 end
 
 function layout:loadEntityTypes()

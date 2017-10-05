@@ -18,9 +18,9 @@ return function()
     in vec3 lightDirection;
     in vec3 normalDirection;
 
-    vec3 cAmbient = vec3(.2);
+    vec3 cAmbient = vec3(.3);
     vec3 cDiffuse = vec3(.8);
-    vec3 cSpecular = vec3(.2);
+    vec3 cSpecular = vec3(.3);
 
     vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) {
       float diffuse = max(dot(normalDirection, lightDirection), 0.);
