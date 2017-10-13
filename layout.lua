@@ -4,14 +4,13 @@ local quat = maf.quat
 local util = require 'util'
 local grid = require 'grid'
 local json = require('json')
-local defaultFilename = 'default.json'
+local defaultFilename = 'sophia.json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
 local layout = {}
 
 function layout:init(level)
-	self:load(defaultFilename)
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
@@ -47,6 +46,8 @@ function layout:init(level)
   self.tokens = {
     { model = lovr.graphics.newModel('tools/token.obj'), texture = lovr.graphics.newTexture('tools/copy.png') }
   }
+
+	self:load(defaultFilename)
 end
 
 function layout:update(dt)
@@ -765,6 +766,24 @@ function layout:load(filename)
   self.filename = filename
   filename = lovr.filesystem.exists(filename) and filename or defaultFilename
   self.data = json.decode(lovr.filesystem.read(filename))
+	util.each(self.data.entities, function(entity)
+		local entity = self:loadNewEntity(entity.entityType, entity.transform)
+		self.entities[entity] = entity
+		table.insert(self.entities, entity)
+	end, ipairs)
+end
+
+
+function layout:loadNewEntity(typeId, transform)
+  local entity = {}
+  entity.locked = false
+  local t = self.entityTypes[typeId]
+  entity.model = t.model
+  entity.scale = scale
+  entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = unpack(transform)
+  entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
+
+  return entity
 end
 
 return layout
