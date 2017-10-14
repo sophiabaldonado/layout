@@ -603,6 +603,7 @@ end
 function layout:newEntity(typeId, x, y, z)
   local entity = {}
   entity.locked = false
+	entity.typeId = typeId
   local t = self.entityTypes[typeId]
   entity.model = t.model
   entity.scale = t.baseScale
@@ -754,7 +755,7 @@ function layout:save()
   for i, entity in ipairs(self.entities) do
     saveData.entities[i] = {
       transform = { entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az },
-      entityType = self.entityTypes[i]
+      entityType = entity.typeId
     }
   end
 
@@ -766,19 +767,22 @@ function layout:load(filename)
   self.filename = filename
   filename = lovr.filesystem.exists(filename) and filename or defaultFilename
   self.data = json.decode(lovr.filesystem.read(filename))
-	util.each(self.data.entities, function(entity)
-		local entity = self:loadNewEntity(entity.entityType, entity.transform)
-		self.entities[entity] = entity
-		table.insert(self.entities, entity)
-	end, ipairs)
+
+	if self.data.entities then
+		util.each(self.data.entities, function(entity)
+			local entity = self:loadNewEntity(entity.entityType, entity.transform)
+			self.entities[entity] = entity
+			table.insert(self.entities, entity)
+		end, ipairs)
+	end
 end
 
 
 function layout:loadNewEntity(typeId, transform)
   local entity = {}
   entity.locked = false
-  local t = self.entityTypes[typeId]
-  entity.model = t.model
+	entity.typeId = typeId
+  entity.model = self.entityTypes[typeId].model
   entity.scale = scale
   entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = unpack(transform)
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
