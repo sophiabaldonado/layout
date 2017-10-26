@@ -159,11 +159,6 @@ function layout:controllerpressed(controller, button)
     local entity = self:getClosestEntity(controller)
   	local otherController = self:getOtherController(self.controllers[controller])
 
-    local c = self.controllers[controller]
-    if entity and not c.drag.active and not c.scale.active and not c.rotate.active then
-      -- hover touchpad tools
-    end
-
     if entity and not entity.locked then
       if button == 'trigger' then
   			if otherController and otherController.drag.active and otherController.activeEntity == entity then
@@ -270,18 +265,36 @@ function layout:setHoverTools()
 	local function deleteHovered()
 		for i = #self.entities, 1, -1 do
 			local entity = self.entities[i]
-			if self:isHovered(entity) then
+			if self:isHovered(entity) and not entity.locked then
 				self:removeEntity(entity)
 			end
 		end
 	end
 
+  local function lockHovered()
+    for i = #self.entities, 1, -1 do
+			local entity = self.entities[i]
+			if self:isHovered(entity) then
+				entity.locked = not entity.locked
+			end
+		end
+	end
+
+  local function setHoverToolsTexture()
+    for i = #self.entities, 1, -1 do
+      local entity = self.entities[i]
+      if self:isHovered(entity) then
+        self.toolTextureName = entity.locked and 'hoverLocked' or 'hover'
+      end
+    end
+  end
+
   self.tools.up = function() print('copy') end
-  self.tools.left = function() print('hover left') end
-  self.tools.right = function() print('hover right') end
+  self.tools.left = function() print('undo') end
+  self.tools.right = function() lockHovered() end
   self.tools.down = function() deleteHovered() end
 
-  self.toolTextureName = 'hover'
+  setHoverToolsTexture()
 end
 
 function layout:setDefaultTools()
