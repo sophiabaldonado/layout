@@ -280,6 +280,17 @@ function layout:setHoverTools()
 		end
 	end
 
+  local function copyHovered()
+    for i = #self.entities, 1, -1 do
+			local entity = self.entities[i]
+			if self:isHovered(entity) then
+				local newEntity = self:newEntityCopy(entity)
+				self.entities[newEntity] = newEntity
+				table.insert(self.entities, newEntity)
+			end
+		end
+	end
+
   local function setHoverToolsTexture()
     for i = #self.entities, 1, -1 do
       local entity = self.entities[i]
@@ -289,12 +300,20 @@ function layout:setHoverTools()
     end
   end
 
-  self.tools.up = function() print('copy') end
+  self.tools.up = function() copyHovered() end
   self.tools.left = function() print('undo') end
   self.tools.right = function() lockHovered() end
   self.tools.down = function() deleteHovered() end
 
   setHoverToolsTexture()
+end
+
+function layout:newEntityCopy(entity)
+	local newEntity = entity
+	newEntity.locked = false
+	newEntity.x, newEntity.y, newEntity.z = entity.x + .1, entity.y + .1, entity.z + .1
+
+  return newEntity
 end
 
 function layout:setDefaultTools()
