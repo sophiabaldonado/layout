@@ -309,9 +309,10 @@ function layout:setHoverTools()
 end
 
 function layout:newEntityCopy(entity)
-	local newEntity = entity
-	newEntity.locked = false
+	local newEntity = {}
+  newEntity.model, newEntity.scale, newEntity.typeId, newEntity.locked = entity.model, entity.scale, entity.typeId, false
 	newEntity.x, newEntity.y, newEntity.z = entity.x + .1, entity.y + .1, entity.z + .1
+  newEntity.angle, newEntity.ax, newEntity.ay, newEntity.az = entity.angle, entity.ax, entity.ay, entity.az
 
   return newEntity
 end
