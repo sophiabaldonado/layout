@@ -4,7 +4,7 @@ local quat = maf.quat
 local util = require 'util'
 local grid = require 'grid'
 local json = require('json')
-local defaultFilename = 'sophia.json'
+local defaultFilename = 'default.json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
@@ -174,8 +174,7 @@ function layout:controllerpressed(controller, button)
       if button == 'trigger' and hover then
         local entity = self:newEntity(hover, x, y, z)
 				print(hover)
-        self.entities[entity] = entity
-        table.insert(self.entities, entity)
+        self:addToEntitiesList(entity)
         self:beginDrag(controller, entity)
       end
     end
@@ -281,14 +280,17 @@ function layout:setHoverTools()
 	end
 
   local function copyHovered()
+    local entity
     for i = #self.entities, 1, -1 do
-			local entity = self.entities[i]
-			if self:isHovered(entity) then
-				local newEntity = self:newEntityCopy(entity)
-				self.entities[newEntity] = newEntity
-				table.insert(self.entities, newEntity)
-			end
+      local controller = self:isHovered(self.entities[i])
+      if controller then
+  			entity = self:getClosestEntity(controller)
+      end
 		end
+    if entity then
+      local newEntity = self:newEntityCopy(entity)
+      self:addToEntitiesList(newEntity)
+    end
 	end
 
   local function setHoverToolsTexture()
@@ -659,6 +661,11 @@ function layout:removeEntity(entity)
 	end
 
 	self.entities[entity] = nil
+end
+
+function layout:addToEntitiesList(entity)
+  self.entities[entity] = entity
+  table.insert(self.entities, entity)
 end
 
 function layout:loadEntityTypes()
