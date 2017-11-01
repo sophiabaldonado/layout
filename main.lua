@@ -2,6 +2,7 @@ layout = require 'layout'
 
 function lovr.load()
   layout:init()
+  -- skybox = require('sky_lua')()
 	shader = require('lighting')()
 	lovr.graphics.setShader(shader)
 end
@@ -13,8 +14,10 @@ end
 function lovr.draw()
 	if layout.active then
 		lovr.graphics.setBackgroundColor(20, 20, 25)
+    -- lovr.graphics.setShader(skybox)
 	else
-		lovr.graphics.setBackgroundColor(50, 50, 80)
+		lovr.graphics.setBackgroundColor(108, 157, 173)
+    -- lovr.graphics.setShader(shader)
 	end
 
   layout:draw()
