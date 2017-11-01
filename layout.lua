@@ -48,6 +48,8 @@ function layout:init(level)
     { model = lovr.graphics.newModel('tools/token.obj'), texture = lovr.graphics.newTexture('tools/copy.png') }
   }
 
+  self.resizeWorld = false
+
 	self:load(defaultFilename)
 end
 
@@ -165,6 +167,15 @@ function layout:controllerpressed(controller, button)
       end
     end
 
+    if button == 'grip' then
+      self.controllers[controller].gripPressed = true
+      if otherController and otherController.gripPressed then
+        if not entity then
+          self:beginResizeWorld()
+        end
+      end
+    end
+
     if entity and not entity.locked then
       if button == 'trigger' then
   			if otherController and otherController.drag.active and otherController.activeEntity == entity then
@@ -196,6 +207,11 @@ function layout:controllerreleased(controller, button)
       self:positionSatchel()
       self.satchel.following = nil
     end
+  end
+
+  if button == 'grip' then
+    self.controllers[controller].gripPressed = false
+    self:endResizeWorld()
   end
 
   if button == 'trigger' then
@@ -250,6 +266,8 @@ function layout:updateControllers()
   util.each(self.controllers, function(controller)
 		local controller = self.controllers[controller]
 		controller.currentPosition:set(self:cursorPos(controller.object))
+
+    if self.resizeWorld then self:updateResizeWorld(controller) end
 
     if controller.drag.active then self:updateDrag(controller) end
     if controller.rotate.active then self:updateRotate(controller) end
@@ -503,6 +521,23 @@ end
 
 function layout:endDrag(controller)
   self.controllers[controller].drag.active = false
+  self:resetDefaults()
+end
+
+function layout:beginResizeWorld()
+  self.resizeWorld = true
+end
+
+function layout:updateResizeWorld(controller)
+  local distance = 1 + (controller.currentPosition.y - controller.lastPosition.y)
+  util.each(self.entities, function(entity)
+    --self:updateEntityScale(entity, distance)
+  end)
+  self:dirty()
+end
+
+function layout:endResizeWorld()
+  self.resizeWorld = false
   self:resetDefaults()
 end
 
