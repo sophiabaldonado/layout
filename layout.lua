@@ -146,7 +146,15 @@ function layout:controllerpressed(controller, button)
 
   if self.active then
 
-    if button == 'menu' or button == 'b' then
+    local entity = self:getClosestEntity(controller)
+    local otherController = self:getOtherController(self.controllers[controller])
+
+    if button == 'menu' or button == 'b' or button == 'y' then
+      self.controllers[controller].menuPressed = true
+      if otherController and otherController.menuPressed then
+        self:clearEntities()
+      end
+
       if not self.satchel.active then
         self.satchel.active = true
         self.satchel.following = controller
@@ -155,9 +163,6 @@ function layout:controllerpressed(controller, button)
         self.satchel.following = nil
       end
     end
-
-    local entity = self:getClosestEntity(controller)
-  	local otherController = self:getOtherController(self.controllers[controller])
 
     if entity and not entity.locked then
       if button == 'trigger' then
@@ -183,7 +188,9 @@ function layout:controllerpressed(controller, button)
 end
 
 function layout:controllerreleased(controller, button)
-  if button == 'menu' or button == 'b' then
+  if button == 'menu' or button == 'b' or button == 'y' then
+    self.controllers[controller].menuPressed = false
+
     if self.satchel.following then
       self:positionSatchel()
       self.satchel.following = nil
@@ -666,6 +673,10 @@ end
 function layout:addToEntitiesList(entity)
   self.entities[entity] = entity
   table.insert(self.entities, entity)
+end
+
+function layout:clearEntities()
+  self.entities = {}
 end
 
 function layout:loadEntityTypes()
