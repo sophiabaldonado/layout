@@ -24,7 +24,8 @@ function layout:init(level)
 		default = { 255, 255, 255 },
 		green = { 89, 205, 119 },
 		red = { 220, 91, 91 },
-		blue = { 57, 117, 227 }
+		blue = { 57, 117, 227 },
+		orange = { 240, 143, 71 }
 	}
 	self.activeColor = self.colors.default
 
@@ -406,9 +407,10 @@ function layout:drawEntities()
 end
 
 function layout:drawEntityUI(entity)
-	local r, g, b = unpack(self.activeColor)
+  local r, g, b = unpack(self.activeColor)
   local a = 100
-  if (self:isHovered(entity)) then a = 200 end
+  if self:isHovered(entity) then a = 200 end
+
 
   local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
@@ -419,6 +421,9 @@ function layout:drawEntityUI(entity)
   lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
   lovr.graphics.translate(-cx, -cy, -cz)
 	if self:isHovered(entity) then
+    if entity.locked then
+      r, g, b = unpack(self.colors.orange)
+    end
 		lovr.graphics.setColor(r, g, b, a)
 	else
 		lovr.graphics.setColor(255, 255, 255, a)
