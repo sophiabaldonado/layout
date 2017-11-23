@@ -50,7 +50,7 @@ function layout:init(level)
 
   self.resizeWorld = false
 
-	self:load(defaultFilename)
+	-- self:load(defaultFilename)
 end
 
 function layout:update(dt)
@@ -856,7 +856,7 @@ end
 
 function layout:load(filename)
   self.filename = filename
-  filename = lovr.filesystem.exists(filename) and filename or defaultFilename
+  -- filename = lovr.filesystem.isFile(filename) and filename or defaultFilename
   self.data = json.decode(lovr.filesystem.read(filename))
 
 	if self.data.entities then
