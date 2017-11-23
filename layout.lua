@@ -24,11 +24,11 @@ function layout:init(level)
   self:refreshControllers()
 
 	self.colors = {
-		default = { 255, 255, 255 },
-		green = { 89, 205, 119 },
-		red = { 220, 91, 91 },
-		blue = { 57, 117, 227 },
-		orange = { 240, 143, 71 }
+		default = { 1, 1, 1 },
+		green = { .349, .804, .4667 },
+		red = { .863, .357, .357 },
+		blue = { .223, .459, .890 },
+		orange = { .941, .561, .278 }
 	}
 	self.activeColor = self.colors.default
 
@@ -113,7 +113,7 @@ function layout:draw()
 	for i, controller in ipairs(self.controllers) do
 		local c = self.controllers[controller]
 		local x, y, z = controller:getPosition()
-		lovr.graphics.setColor(255, 255, 255)
+		lovr.graphics.setColor(self.colors.default)
 		c.model:draw(x, y, z, 1, controller:getOrientation())
 	end
 
@@ -126,7 +126,7 @@ function layout:drawToolUI()
   local toolTexturePath = self.toolTextureName..'.png'
   local toolTexture = lovr.graphics.newTexture(toolTexturePath)
 
-	lovr.graphics.setColor(255, 255, 255)
+	lovr.graphics.setColor(self.colors.default)
   util.each(self.controllers, function(controller)
     local x, y, z = controller:getPosition()
     local angle, ax, ay, az = controller:getOrientation()
@@ -436,8 +436,9 @@ end
 function layout:drawEntityUI(entity)
   lovr.graphics.setMaterial(nil)
   local r, g, b = unpack(self.activeColor)
-  local a = 100
-  if self:isHovered(entity) then a = 200 end
+  local a = .392
+  local highA = .784
+  if self:isHovered(entity) then a = highA end
 
 
   local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
@@ -454,7 +455,8 @@ function layout:drawEntityUI(entity)
     end
 		lovr.graphics.setColor(r, g, b, a)
 	else
-		lovr.graphics.setColor(255, 255, 255, a)
+    r, g, b = unpack(self.colors.default)
+		lovr.graphics.setColor(r, g, b, a)
 	end
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.pop()
@@ -464,15 +466,15 @@ function layout:drawEntityUI(entity)
       local x, y, z = entity.x, entity.y, entity.z
       if axis == 'x' then
         local r, g, b = unpack(self.colors.red)
-        lovr.graphics.setColor(r, g, b, 200)
+        lovr.graphics.setColor(r, g, b, highA)
         lovr.graphics.line(x - 10, y, z, x + 10, y, z)
       elseif axis == 'y' then
         local r, g, b = unpack(self.colors.green)
-        lovr.graphics.setColor(r, g, b, 200)
+        lovr.graphics.setColor(r, g, b, highA)
         lovr.graphics.line(x, y - 10, z, x, y + 10, z)
       elseif axis == 'z' then
         local r, g, b = unpack(self.colors.blue)
-        lovr.graphics.setColor(r, g, b, 200)
+        lovr.graphics.setColor(r, g, b, highA)
         lovr.graphics.line(x, y, z - 10, x, y, z + 10)
       end
       lovr.graphics.setLineWidth(1)

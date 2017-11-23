@@ -13,10 +13,10 @@ end
 
 function lovr.draw()
 	if layout.active then
-		lovr.graphics.setBackgroundColor(20, 20, 25)
+		lovr.graphics.setBackgroundColor(.078, .078, .098)
     -- lovr.graphics.setShader(skybox)
 	else
-		lovr.graphics.setBackgroundColor(108, 157, 173)
+		lovr.graphics.setBackgroundColor(.423, .616, .678)
     -- lovr.graphics.setShader(shader)
 	end
 
