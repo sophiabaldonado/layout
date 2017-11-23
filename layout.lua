@@ -15,8 +15,11 @@ function layout:init(level)
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
   self.axisLock = { x = false, y = false, z = false }
-  self:setDefaultTools()
+  local texture = lovr.graphics.newTexture('models/texture1.png')
+  self.mainMaterial = lovr.graphics.newMaterial()
+  self.mainMaterial:setTexture(texture)
 
+  self:setDefaultTools()
   self:loadEntityTypes()
   self:refreshControllers()
 
@@ -97,6 +100,8 @@ function layout:draw()
 
 	self.grid:draw()
 
+  lovr.graphics.setMaterial(self.mainMaterial)
+
 	if self.active then
 		self:drawCursors()
 
@@ -117,6 +122,7 @@ function layout:draw()
 end
 
 function layout:drawToolUI()
+  lovr.graphics.setMaterial(nil)
   local toolTexturePath = self.toolTextureName..'.png'
   local toolTexture = lovr.graphics.newTexture(toolTexturePath)
 
@@ -130,6 +136,7 @@ function layout:drawToolUI()
     lovr.graphics.plane(toolTexture, 0, .01, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
 		lovr.graphics.pop()
   end, ipairs)
+  lovr.graphics.setMaterial(self.mainMaterial)
 end
 
 function layout:controllerpressed(controller, button)
@@ -395,6 +402,7 @@ function layout:drawSatchel()
 end
 
 function layout:drawCursors()
+  lovr.graphics.setMaterial(nil)
   for _, controller in ipairs(self.controllers) do
     local cursor = self:cursorPos(controller)
     x, y, z = cursor:unpack()
@@ -407,6 +415,7 @@ function layout:drawCursors()
 			lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
 		end
   end
+  lovr.graphics.setMaterial(self.mainMaterial)
 end
 
 function layout:drawEntities()
@@ -425,6 +434,7 @@ function layout:drawEntities()
 end
 
 function layout:drawEntityUI(entity)
+  lovr.graphics.setMaterial(nil)
   local r, g, b = unpack(self.activeColor)
   local a = 100
   if self:isHovered(entity) then a = 200 end
@@ -469,6 +479,7 @@ function layout:drawEntityUI(entity)
     end
   end
   lovr.graphics.setColor(self.colors.default)
+  lovr.graphics.setMaterial(self.mainMaterial)
 end
 
 function layout:beginDrag(controller, entity)
@@ -725,15 +736,13 @@ function layout:loadEntityTypes()
   self.entityTypes = {}
   self.satchelItemSize = .09
 
-  local texture = lovr.graphics.newTexture('models/texture1.png')
-
   for i, file in ipairs(files) do
     if file:match('%.obj$') or file:match('%.fbx$') or file:match('%.dae$') then
       local id = file:gsub('%.%a+$', '')
       local texturePath = path .. '/' .. id .. '.png'
       local modelPath = path .. '/' .. file
       local model = lovr.graphics.newModel(modelPath)
-      model:setTexture(texture)
+
 
       local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
       local width, height, depth = maxx - minx, maxy - miny, maxz - minz
