@@ -33,7 +33,9 @@ function layout:init(level)
 	self.activeColor = self.colors.default
 
   self.active = true
-  self.toolTextureName = self.active and 'play' or 'stop'
+
+  local toolTextureName = self.active and 'play' or 'stop'
+	self:setToolTexture(toolTextureName)
 
 	self.entities = level and level.entities or {}
 
@@ -123,8 +125,7 @@ end
 
 function layout:drawToolUI()
   lovr.graphics.setMaterial(nil)
-  local toolTexturePath = self.toolTextureName..'.png'
-  local toolTexture = lovr.graphics.newTexture(toolTexturePath)
+  local toolTexture = self.toolTexture
 
 	lovr.graphics.setColor(self.colors.default)
   util.each(self.controllers, function(controller)
@@ -137,6 +138,10 @@ function layout:drawToolUI()
 		lovr.graphics.pop()
   end, ipairs)
   lovr.graphics.setMaterial(self.mainMaterial)
+end
+
+function layout:setToolTexture(name)
+	self.toolTexture = lovr.graphics.newTexture(name..'.png')
 end
 
 function layout:controllerpressed(controller, button)
@@ -290,7 +295,7 @@ function layout:setActiveTools()
   self.tools.right = function() self.axisLock.z = not self.axisLock.z end
   self.tools.down = function() end
 
-  self.toolTextureName = 'active'
+	self:setToolTexture('active')
 end
 
 function layout:setHoverTools()
@@ -330,7 +335,8 @@ function layout:setHoverTools()
     for i = #self.entities, 1, -1 do
       local entity = self.entities[i]
       if self:isHovered(entity) then
-        self.toolTextureName = entity.locked and 'hoverLocked' or 'hover'
+        local toolTextureName = entity.locked and 'hoverLocked' or 'hover'
+				self:setToolTexture(toolTextureName)
       end
     end
   end
@@ -355,7 +361,8 @@ end
 function layout:setDefaultTools()
 	local function toggleActive()
 		self.active = not self.active
-		self.toolTextureName = self.active and 'play' or 'stop'
+		local toolTextureName = self.active and 'play' or 'stop'
+		self:setToolTexture(toolTextureName)
 	end
 
   self.tools.up = function() toggleActive() end
@@ -363,7 +370,8 @@ function layout:setDefaultTools()
   self.tools.right = function() toggleActive() end
   self.tools.down = function() toggleActive() end
 
-	self.toolTextureName = self.active and 'play' or 'stop'
+	local toolTextureName = self.active and 'play' or 'stop'
+	self:setToolTexture(toolTextureName)
 end
 
 function layout:drawSatchel()
