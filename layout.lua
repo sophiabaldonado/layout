@@ -102,8 +102,6 @@ function layout:draw()
 
 	self.grid:draw()
 
-  lovr.graphics.setMaterial(self.mainMaterial)
-
 	if self.active then
 		self:drawCursors()
 
@@ -124,7 +122,6 @@ function layout:draw()
 end
 
 function layout:drawToolUI()
-  lovr.graphics.setMaterial(nil)
   local toolTexture = self.toolTexture
 
 	lovr.graphics.setColor(self.colors.default)
@@ -137,7 +134,6 @@ function layout:drawToolUI()
     lovr.graphics.plane(toolTexture, 0, .01, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
 		lovr.graphics.pop()
   end, ipairs)
-  lovr.graphics.setMaterial(self.mainMaterial)
 end
 
 function layout:setToolTexture(name)
@@ -410,7 +406,6 @@ function layout:drawSatchel()
 end
 
 function layout:drawCursors()
-  lovr.graphics.setMaterial(nil)
   for _, controller in ipairs(self.controllers) do
     local cursor = self:cursorPos(controller)
     x, y, z = cursor:unpack()
@@ -423,7 +418,6 @@ function layout:drawCursors()
 			lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
 		end
   end
-  lovr.graphics.setMaterial(self.mainMaterial)
 end
 
 function layout:drawEntities()
@@ -442,7 +436,6 @@ function layout:drawEntities()
 end
 
 function layout:drawEntityUI(entity)
-  lovr.graphics.setMaterial(nil)
   local r, g, b = unpack(self.activeColor)
   local a = .392
   local highA = .784
@@ -489,7 +482,6 @@ function layout:drawEntityUI(entity)
     end
   end
   lovr.graphics.setColor(self.colors.default)
-  lovr.graphics.setMaterial(self.mainMaterial)
 end
 
 function layout:beginDrag(controller, entity)
@@ -752,7 +744,7 @@ function layout:loadEntityTypes()
       local texturePath = path .. '/' .. id .. '.png'
       local modelPath = path .. '/' .. file
       local model = lovr.graphics.newModel(modelPath)
-
+      model:setMaterial(self.mainMaterial)
 
       local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
       local width, height, depth = maxx - minx, maxy - miny, maxz - minz
