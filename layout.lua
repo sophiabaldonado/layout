@@ -17,6 +17,7 @@ function layout:init(level)
   self.axisLock = { x = false, y = false, z = false }
   local texture = lovr.graphics.newTexture('models/texture1.png')
   self.mainMaterial = lovr.graphics.newMaterial()
+  self.toolMaterial = lovr.graphics.newMaterial()
   self.mainMaterial:setTexture(texture)
 
   self:setDefaultTools()
@@ -50,7 +51,7 @@ function layout:init(level)
   self.grid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
 
   self.tokens = {
-    { model = lovr.graphics.newModel('tools/token.obj'), texture = lovr.graphics.newTexture('tools/copy.png') }
+    { model = lovr.graphics.newModel('tools/token.obj'), material = lovr.graphics.newMaterial('tools/copy.png') }
   }
 
   self.resizeWorld = false
@@ -131,13 +132,15 @@ function layout:drawToolUI()
 		lovr.graphics.push()
 		lovr.graphics.translate(x, y, z)
 		lovr.graphics.rotate(angle, ax, ay, az)
-    lovr.graphics.plane(toolTexture, 0, .01, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
+    lovr.graphics.plane(self.toolMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
 		lovr.graphics.pop()
   end, ipairs)
 end
 
 function layout:setToolTexture(name)
-	self.toolTexture = lovr.graphics.newTexture(name..'.png')
+  self.toolTextures = self.toolTextures or {}
+  self.toolTextures[name] = self.toolTextures[name] or lovr.graphics.newTexture(name..'.png')
+  self.toolMaterial:setTexture(self.toolTextures[name])
 end
 
 function layout:controllerpressed(controller, button)
@@ -679,7 +682,7 @@ function layout:drawTokens()
     x, y, z = tokenPos:unpack()
     for _, token in ipairs(self.tokens) do
       token.model:draw(x, y, z, .25, angle, ax, ay, az)
-      lovr.graphics.plane(token.texture, x, y, z, .08, angle, ax, ay, az)
+      lovr.graphics.plane(token.material, x, y, z, .08, .08, angle, ax, ay, az)
     end
   end, ipairs)
 end
