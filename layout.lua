@@ -4,13 +4,12 @@ local quat = maf.quat
 local util = require 'util'
 local grid = require 'grid'
 local json = require('json')
-local defaultFilename = 'default.json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
 local layout = {}
 
-function layout:init(level)
+function layout:init()
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
@@ -38,7 +37,7 @@ function layout:init(level)
   local toolTextureName = self.active and 'play' or 'stop'
 	self:setToolTexture(toolTextureName)
 
-	self.entities = level and level.entities or {}
+	self.entities = {}
 
   self.satchel = {
     active = false,
@@ -56,7 +55,7 @@ function layout:init(level)
 
   self.resizeWorld = false
 
-	-- self:load(defaultFilename)
+	self:load('mujugarden')
 end
 
 function layout:update(dt)
@@ -201,7 +200,6 @@ function layout:controllerpressed(controller, button)
       local hover, x, y, z = self:getSatchelHover(controller)
       if button == 'trigger' and hover then
         local entity = self:newEntity(hover, x, y, z)
-				print(hover)
         self:addToEntitiesList(entity)
         self:beginDrag(controller, entity)
       end
@@ -341,7 +339,7 @@ function layout:setHoverTools()
   end
 
   self.tools.up = function() copyHovered() end
-  self.tools.left = function() print('undo') end
+  self.tools.left = function() print('left') end
   self.tools.right = function() lockHovered() end
   self.tools.down = function() deleteHovered() end
 
@@ -364,10 +362,17 @@ function layout:setDefaultTools()
 		self:setToolTexture(toolTextureName)
 	end
 
+  local function file()
+    self:saveAsCopy()
+  end
+
+  local function undo() end
+  local function redo() end
+
   self.tools.up = function() toggleActive() end
-  self.tools.left = function() toggleActive() end
-  self.tools.right = function() toggleActive() end
-  self.tools.down = function() toggleActive() end
+  self.tools.left = function() undo() end
+  self.tools.right = function() redo() end
+  self.tools.down = function() file() end
 
 	local toolTextureName = self.active and 'play' or 'stop'
 	self:setToolTexture(toolTextureName)
@@ -742,9 +747,8 @@ function layout:loadEntityTypes()
   self.satchelItemSize = .09
 
   for i, file in ipairs(files) do
-    if file:match('%.obj$') or file:match('%.fbx$') or file:match('%.dae$') then
+    if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') or file:match('%.dae$') then
       local id = file:gsub('%.%a+$', '')
-      local texturePath = path .. '/' .. id .. '.png'
       local modelPath = path .. '/' .. file
       local model = lovr.graphics.newModel(modelPath)
       model:setMaterial(self.mainMaterial)
@@ -818,8 +822,23 @@ end
 
 function layout:isHoveredByController(entity, controller)
   if not controller then return false end
+  local function addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, scale)
+    local w, h, d = (maxx - minx) * scale, (maxy - miny) * scale, (maxz - minz) * scale
+    if w <= .005 then
+      minx = minx + .005
+    end
+    if h <= .005 then
+      miny = miny + .005
+    end
+    if d <= .005 then
+      minz = minz + .005
+    end
+    return minx, maxx, miny, maxy, minz, maxz
+  end
+
   local t = entity
   local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
+  minx, maxx, miny, maxy, minz, maxz = addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, t.scale)
   local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
   minx, maxx, miny, maxy, minz, maxz = t.x + minx * t.scale, t.x + maxx * t.scale, t.y + miny * t.scale, t.y + maxy * t.scale, t.z + minz * t.scale, t.z + maxz * t.scale
   transform:origin()
@@ -852,9 +871,17 @@ function layout:dirty()
   self.lastChange = lovr.timer.getTime()
 end
 
+function layout:nextFilename(filename)
+  local function versionFilename(name, version) return name..'-'..string.format('%02d', version) end
+  local i = 1
+  while lovr.filesystem.isFile('levels/'..versionFilename(filename, i)..'.json') do i = i + 1 end
+  return versionFilename(filename, i) -- TODO: make this not return 'mujugarden-02-01'
+end
+
 function layout:save()
-	local saveData = {}
-	local name = self.filename ~= defaultFilename and self.filename or 'levels/layout.json'
+  local saveData = {}
+	self.filename = self.filename or nextFilename('untitled')
+  local path = 'levels/'..self.filename..'.json'
   saveData.entities = {}
 
   for i, entity in ipairs(self.entities) do
@@ -863,15 +890,20 @@ function layout:save()
       entityType = entity.typeId
     }
   end
-
+  print(self.filename, path)
 	lovr.filesystem.createDirectory('levels')
-  lovr.filesystem.write(name, json.encode(saveData))
+  lovr.filesystem.write(path, json.encode(saveData))
+end
+
+function layout:saveAsCopy()
+  self.filename = self.filename and self:nextFilename(self.filename) or nil
+  self:save()
 end
 
 function layout:load(filename)
   self.filename = filename
-  -- filename = lovr.filesystem.isFile(filename) and filename or defaultFilename
-  self.data = json.decode(lovr.filesystem.read(filename))
+  local path = 'levels/'..filename..'.json'
+  self.data = json.decode(lovr.filesystem.read(path))
 
 	if self.data.entities then
 		util.each(self.data.entities, function(entity)
