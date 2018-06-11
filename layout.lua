@@ -708,7 +708,7 @@ function layout:newEntity(typeId, x, y, z)
   local entity = {}
   entity.locked = false
 	entity.typeId = typeId
-  local t = loader.entityTypes[typeId]
+  local t = loader:getEntityById(typeId)
   entity.model = t.model
   entity.scale = t.baseScale
 
@@ -772,7 +772,7 @@ local tmp1, tmp2 = vector(), vector()
 function layout:getSatchelHover(controller)
   if not self.satchel.active then return end
 
-  local count = #loader.entityTypes
+  local count = #loader.entityTypes -- probably change to paginated total?
   local spacing = self.satchel.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
@@ -784,7 +784,9 @@ function layout:getSatchelHover(controller)
     local x = -spacing * (perRow - 1) / 2
 
     for j = 1, perRow do
-      local id = loader.entityTypes[(i - 1) * perRow + j]
+			print((i - 1) * perRow + j)
+			print(loader:getEntityById((i - 1) * perRow + j))
+      local id = loader:getEntityById((i - 1) * perRow + j) -- loader.entityTypes[(i - 1) * perRow + j]
       tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
 
       if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
@@ -920,7 +922,7 @@ function layout:loadNewEntity(typeId, transform)
   local entity = {}
   entity.locked = false
 	entity.typeId = typeId
-  entity.model = loader.entityTypes[typeId].model
+  entity.model = loader:getEntityById(typeId).model
   entity.scale = scale
   entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = unpack(transform)
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)

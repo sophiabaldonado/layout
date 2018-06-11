@@ -30,7 +30,7 @@ function loader:loadLocalModels()
         model = model,
         baseScale = baseScale
       }
-
+			-- print(id)
       table.insert(self.entityTypes, id)
     end
   end
@@ -57,7 +57,9 @@ function loader:getBaseScale(model)
 	return self.itemSize / math.max(width, height, depth)
 end
 
-
+function loader:getEntityById(typeId)
+	return self.entityTypes[typeId]
+end
 
 
 
