@@ -55,7 +55,7 @@ function layout:init()
 
   self.resizeWorld = false
 
-	self:load('mujugarden')
+	self:load('default')
 end
 
 function layout:update(dt)
@@ -902,7 +902,7 @@ end
 
 function layout:load(filename)
   self.filename = filename
-  local path = 'levels/'..filename..'.json'
+  local path = lovr.filesystem.isFile('levels/'..filename..'.json') and 'levels/'..filename..'.json' or 'default.json'
   self.data = json.decode(lovr.filesystem.read(path))
 
 	if self.data.entities then
