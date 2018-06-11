@@ -6,10 +6,12 @@ local grid = require 'grid'
 local json = require('json')
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
+local loader = require 'loader'
 
 local layout = {}
 
 function layout:init()
+	loader:init()
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
@@ -20,7 +22,6 @@ function layout:init()
   self.mainMaterial:setTexture(texture)
 
   self:setDefaultTools()
-  self:loadEntityTypes()
   self:refreshControllers()
 
 	self.colors = {
@@ -383,7 +384,7 @@ function layout:drawSatchel()
     self:positionSatchel()
   end
 
-  local count = #self.entityTypes
+  local count = #loader.entityTypes
   local spacing = self.satchel.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
@@ -396,7 +397,7 @@ function layout:drawSatchel()
     local x = -spacing * (perRow - 1) / 2
 
     for j = 1, perRow do
-      local entityType = self.entityTypes[self.entityTypes[(i - 1) * perRow + j]]
+      local entityType = loader.entityTypes[loader.entityTypes[(i - 1) * perRow + j]]
 
       if entityType then
         local minx, maxx, miny, maxy, minz, maxz = entityType.model:getAABB()
@@ -707,7 +708,7 @@ function layout:newEntity(typeId, x, y, z)
   local entity = {}
   entity.locked = false
 	entity.typeId = typeId
-  local t = self.entityTypes[typeId]
+  local t = loader.entityTypes[typeId]
   entity.model = t.model
   entity.scale = t.baseScale
 
@@ -740,38 +741,38 @@ function layout:clearEntities()
   self.entities = {}
 end
 
-function layout:loadEntityTypes()
-  local path = 'models'
-  local files = lovr.filesystem.getDirectoryItems(path)
-  self.entityTypes = {}
-  self.satchelItemSize = .09
-
-  for i, file in ipairs(files) do
-    if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') or file:match('%.dae$') then
-      local id = file:gsub('%.%a+$', '')
-      local modelPath = path .. '/' .. file
-      local model = lovr.graphics.newModel(modelPath)
-      model:setMaterial(self.mainMaterial)
-
-      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-      local width, height, depth = maxx - minx, maxy - miny, maxz - minz
-      local baseScale = self.satchelItemSize / math.max(width, height, depth)
-
-      self.entityTypes[id] = {
-        model = model,
-        baseScale = baseScale
-      }
-
-      table.insert(self.entityTypes, id)
-    end
-  end
-end
+-- function layout:loadEntityTypes()
+--   local path = 'models'
+--   local files = lovr.filesystem.getDirectoryItems(path)
+--   loader.entityTypes = {}
+--   self.satchelItemSize = .09
+--
+--   for i, file in ipairs(files) do
+--     if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') or file:match('%.dae$') then
+--       local id = file:gsub('%.%a+$', '')
+--       local modelPath = path .. '/' .. file
+--       local model = lovr.graphics.newModel(modelPath)
+--       model:setMaterial(self.mainMaterial)
+--
+--       local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+--       local width, height, depth = maxx - minx, maxy - miny, maxz - minz
+--       local baseScale = self.satchelItemSize / math.max(width, height, depth)
+--
+--       loader.entityTypes[id] = {
+--         model = model,
+--         baseScale = baseScale
+--       }
+--
+--       table.insert(loader.entityTypes, id)
+--     end
+--   end
+-- end
 
 local tmp1, tmp2 = vector(), vector()
 function layout:getSatchelHover(controller)
   if not self.satchel.active then return end
 
-  local count = #self.entityTypes
+  local count = #loader.entityTypes
   local spacing = self.satchel.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
@@ -783,7 +784,7 @@ function layout:getSatchelHover(controller)
     local x = -spacing * (perRow - 1) / 2
 
     for j = 1, perRow do
-      local id = self.entityTypes[(i - 1) * perRow + j]
+      local id = loader.entityTypes[(i - 1) * perRow + j]
       tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
 
       if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
@@ -919,7 +920,7 @@ function layout:loadNewEntity(typeId, transform)
   local entity = {}
   entity.locked = false
 	entity.typeId = typeId
-  entity.model = self.entityTypes[typeId].model
+  entity.model = loader.entityTypes[typeId].model
   entity.scale = scale
   entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = unpack(transform)
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)

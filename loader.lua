@@ -1,0 +1,51 @@
+-- local http = require 'http.request'
+
+-- if enablePoly then local poly = require 'poly' end -- TODO: check conf for enablePoly
+
+local loader = {}
+
+function loader:init()
+	self.entityTypes = {}
+
+	if poly then
+		self:loadPolyModels()
+	end
+	self:loadLocalModels()
+end
+
+function loader:loadLocalModels()
+  local path = 'models'
+  local files = lovr.filesystem.getDirectoryItems(path)
+	local itemSize = .09
+
+  for i, file in ipairs(files) do
+    if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') or file:match('%.dae$') then
+      local id = file:gsub('%.%a+$', '')
+      local modelPath = path .. '/' .. file
+      local model = lovr.graphics.newModel(modelPath)
+      model:setMaterial(self.mainMaterial)
+
+      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+      local width, height, depth = maxx - minx, maxy - miny, maxz - minz
+      local baseScale = itemSize / math.max(width, height, depth)
+
+      self.entityTypes[id] = {
+        model = model,
+        baseScale = baseScale
+      }
+
+      table.insert(self.entityTypes, id)
+    end
+  end
+end
+
+function loader:loadPolyModels()
+
+	table.insert(self.entityTypes, id)
+end
+
+
+
+
+
+return loader
