@@ -7,11 +7,13 @@ local json = require('json')
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 local loader = require 'loader'
+local satchel = require 'satchel'
 
 local layout = {}
 
 function layout:init()
 	loader:init()
+	satchel:init(loader)
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
@@ -40,13 +42,14 @@ function layout:init()
 
 	self.entities = {}
 
-  self.satchel = {
-    active = false,
-    following = nil,
-    itemSize = .06,
-    transform = lovr.math.newTransform(),
-    yaw = 0
-  }
+	self.satchel = satchel
+  -- self.satchel = {
+  --   active = false,
+  --   following = nil,
+  --   itemSize = .06,
+  --   transform = lovr.math.newTransform(),
+  --   yaw = 0
+  -- }
 
   self.grid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
 
@@ -107,7 +110,8 @@ function layout:draw()
 		self:drawCursors()
 
 		if self.satchel.active then
-			self:drawSatchel()
+			-- self:drawSatchel()
+			self.satchel:draw()
 		end
 	end
 
@@ -198,7 +202,8 @@ function layout:controllerpressed(controller, button)
         self:beginRotate(controller, entity)
       end
     else
-      local hover, x, y, z = self:getSatchelHover(controller)
+      -- local hover, x, y, z = self:getSatchelHover(controller)
+      local hover, x, y, z = self.satchel:getHover(self:cursorPos(controller))
       if button == 'trigger' and hover then
         local entity = self:newEntity(hover, x, y, z)
         self:addToEntitiesList(entity)
@@ -214,7 +219,7 @@ function layout:controllerreleased(controller, button)
     self.controllers[controller].menuPressed = false
 
     if self.satchel.following then
-      self:positionSatchel()
+      self.satchel:reposition()
       self.satchel.following = nil
     end
   end
@@ -380,38 +385,38 @@ function layout:setDefaultTools()
 end
 
 function layout:drawSatchel()
-  if self.satchel.following then
-    self:positionSatchel()
-  end
-
-  local count = #loader.entityTypes
-  local spacing = self.satchel.itemSize * 2
-  local perRow = math.ceil(math.sqrt(count))
-  local rows = math.ceil(count / perRow)
-  local y = spacing * (rows - 1) / 2
-
-  lovr.graphics.push()
-  lovr.graphics.transform(self.satchel.transform)
-
-  for i = 1, rows do
-    local x = -spacing * (perRow - 1) / 2
-
-    for j = 1, perRow do
-      local entityType = loader.entityTypes[loader.entityTypes[(i - 1) * perRow + j]]
-
-      if entityType then
-        local minx, maxx, miny, maxy, minz, maxz = entityType.model:getAABB()
-        local cx, cy, cz = (minx + maxx) / 2 * entityType.baseScale, (miny + maxy) / 2 * entityType.baseScale, (minz + maxz) / 2 * entityType.baseScale
-        entityType.model:draw(x - cx, y - cy, 0 - cz, entityType.baseScale, lovr.timer.getTime() * .2, 0, 1, 0)
-      end
-
-      x = x + spacing
-    end
-
-    y = y - spacing
-  end
-
-  lovr.graphics.pop()
+  -- if self.satchel.following then
+  --   self:positionSatchel()
+  -- end
+	--
+  -- local count = #loader.entityTypes
+  -- local spacing = self.satchel.itemSize * 2
+  -- local perRow = math.ceil(math.sqrt(count))
+  -- local rows = math.ceil(count / perRow)
+  -- local y = spacing * (rows - 1) / 2
+	--
+  -- lovr.graphics.push()
+  -- lovr.graphics.transform(self.satchel.transform)
+	--
+  -- for i = 1, rows do
+  --   local x = -spacing * (perRow - 1) / 2
+	--
+  --   for j = 1, perRow do
+  --     local entityType = loader.entityTypes[loader.entityTypes[(i - 1) * perRow + j]]
+	--
+  --     if entityType then
+  --       local minx, maxx, miny, maxy, minz, maxz = entityType.model:getAABB()
+  --       local cx, cy, cz = (minx + maxx) / 2 * entityType.baseScale, (miny + maxy) / 2 * entityType.baseScale, (minz + maxz) / 2 * entityType.baseScale
+  --       entityType.model:draw(x - cx, y - cy, 0 - cz, entityType.baseScale, lovr.timer.getTime() * .2, 0, 1, 0)
+  --     end
+	--
+  --     x = x + spacing
+  --   end
+	--
+  --   y = y - spacing
+  -- end
+	--
+  -- lovr.graphics.pop()
 end
 
 function layout:drawCursors()
@@ -768,47 +773,47 @@ end
 --   end
 -- end
 
-local tmp1, tmp2 = vector(), vector()
-function layout:getSatchelHover(controller)
-  if not self.satchel.active then return end
+-- local tmp1, tmp2 = vector(), vector()
+-- function layout:getSatchelHover(controller)
+--   if not self.satchel.active then return end
+--
+--   local count = #loader.entityTypes -- probably change to paginated total?
+--   local spacing = self.satchel.itemSize * 2
+--   local perRow = math.ceil(math.sqrt(count))
+--   local rows = math.ceil(count / perRow)
+--   local y = spacing * (rows - 1) / 2
+--
+--   tmp2:set(self:cursorPos(controller))
+--
+--   for i = 1, rows do
+--     local x = -spacing * (perRow - 1) / 2
+--
+--     for j = 1, perRow do
+-- 			print((i - 1) * perRow + j)
+-- 			print(loader:getEntityById((i - 1) * perRow + j))
+--       local id = loader:getEntityById((i - 1) * perRow + j) -- loader.entityTypes[(i - 1) * perRow + j]
+--       tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
+--
+--       if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
+--         return id, tmp1:unpack()
+--       end
+--
+--       x = x + spacing
+--     end
+--
+--     y = y - spacing
+--   end
+-- end
 
-  local count = #loader.entityTypes -- probably change to paginated total?
-  local spacing = self.satchel.itemSize * 2
-  local perRow = math.ceil(math.sqrt(count))
-  local rows = math.ceil(count / perRow)
-  local y = spacing * (rows - 1) / 2
-
-  tmp2:set(self:cursorPos(controller))
-
-  for i = 1, rows do
-    local x = -spacing * (perRow - 1) / 2
-
-    for j = 1, perRow do
-			print((i - 1) * perRow + j)
-			print(loader:getEntityById((i - 1) * perRow + j))
-      local id = loader:getEntityById((i - 1) * perRow + j) -- loader.entityTypes[(i - 1) * perRow + j]
-      tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
-
-      if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
-        return id, tmp1:unpack()
-      end
-
-      x = x + spacing
-    end
-
-    y = y - spacing
-  end
-end
-
-function layout:positionSatchel()
-  local x, y, z = self.satchel.following:getPosition()
-  local hx, hy, hz = lovr.headset.getPosition()
-  local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, x, 0, z)
-  self.satchel.transform:origin()
-  self.satchel.transform:translate(x, y, z)
-  self.satchel.transform:rotate(angle, ax, ay, az)
-  self.satchel.yaw = angle
-end
+-- function layout:positionSatchel()
+--   local x, y, z = self.satchel.following:getPosition()
+--   local hx, hy, hz = lovr.headset.getPosition()
+--   local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, x, 0, z)
+--   self.satchel.transform:origin()
+--   self.satchel.transform:translate(x, y, z)
+--   self.satchel.transform:rotate(angle, ax, ay, az)
+--   self.satchel.yaw = angle
+-- end
 
 function layout:getClosestEntity(controller)
   local x, y, z = self.controllers[controller].object:getPosition()

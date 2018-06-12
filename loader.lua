@@ -61,6 +61,10 @@ function loader:getEntityById(typeId)
 	return self.entityTypes[typeId]
 end
 
+function loader:getEntityByIndex(index)
+	return self.entityTypes[index]
+end
+
 
 
 return loader
