@@ -75,8 +75,8 @@ function satchel:getHover(controllerPosition)
 
     for j = 1, perRow do
 			print((i - 1) * perRow + j)
-			print(self.loader:getEntityById((i - 1) * perRow + j))
-      local id = self.loader:getEntityById((i - 1) * perRow + j) -- loader.entityTypes[(i - 1) * perRow + j]
+			print(self.loader:getEntityByIndex((i - 1) * perRow + j))
+      local id = self.loader:getEntityByIndex((i - 1) * perRow + j) -- loader.entityTypes[(i - 1) * perRow + j]
       tmp1:set(self.transform:transformPoint(x, y, 0))
 
       if tmp1:distance(tmp2) < self.itemSize * .8 then

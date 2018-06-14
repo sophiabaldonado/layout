@@ -1,6 +1,6 @@
 -- local http = require 'http.request'
-
--- if enablePoly then local poly = require 'poly' end -- TODO: check conf for enablePoly
+local config = require 'config'
+if config.enablePoly then local poly = require 'poly' end -- TODO: check conf for enablePoly
 
 local loader = {}
 

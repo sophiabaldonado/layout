@@ -4,5 +4,4 @@ function lovr.conf(t)
 	t.window.height = 800
 	t.window.msaa = 16
   t.gammacorrect = true
-	t.enablePoly = true
 end

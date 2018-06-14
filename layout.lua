@@ -14,7 +14,7 @@ local layout = {}
 function layout:init()
 	loader:init()
 	satchel:init(loader)
-	self.isDirty = false
+	self.hasUnsavedChange = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
   self.axisLock = { x = false, y = false, z = false }
@@ -41,18 +41,7 @@ function layout:init()
 	self:setToolTexture(toolTextureName)
 
 	self.entities = {}
-
-	self.satchel = satchel
-  -- self.satchel = {
-  --   active = false,
-  --   following = nil,
-  --   itemSize = .06,
-  --   transform = lovr.math.newTransform(),
-  --   yaw = 0
-  -- }
-
   self.grid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
-
   self.tokens = {
     { model = lovr.graphics.newModel('tools/token.obj'), material = lovr.graphics.newMaterial('tools/copy.png') }
   }
@@ -96,8 +85,8 @@ function layout:update(dt)
 			self:setDefaultTools()
 		end
 	else
-		self.satchel.active = false
-		self.satchel.following = nil
+		satchel.active = false
+		satchel.following = nil
 	end
 end
 
@@ -109,9 +98,9 @@ function layout:draw()
 	if self.active then
 		self:drawCursors()
 
-		if self.satchel.active then
+		if satchel.active then
 			-- self:drawSatchel()
-			self.satchel:draw()
+			satchel:draw()
 		end
 	end
 
@@ -173,12 +162,12 @@ function layout:controllerpressed(controller, button)
         self:clearEntities()
       end
 
-      if not self.satchel.active then
-        self.satchel.active = true
-        self.satchel.following = controller
+      if not satchel.active then
+        satchel.active = true
+        satchel.following = controller
       else
-        self.satchel.active = false
-        self.satchel.following = nil
+        satchel.active = false
+        satchel.following = nil
       end
     end
 
@@ -194,7 +183,7 @@ function layout:controllerpressed(controller, button)
     if entity and not entity.locked then
       if button == 'trigger' then
   			if otherController and otherController.drag.active and otherController.activeEntity == entity then
-          self:beginScale(controller, otherController, entity)
+          self:beginScale(entity, controller, otherController)
         else
           self:beginDrag(controller, entity)
         end
@@ -202,8 +191,7 @@ function layout:controllerpressed(controller, button)
         self:beginRotate(controller, entity)
       end
     else
-      -- local hover, x, y, z = self:getSatchelHover(controller)
-      local hover, x, y, z = self.satchel:getHover(self:cursorPos(controller))
+      local hover, x, y, z = satchel:getHover(self:cursorPos(controller))
       if button == 'trigger' and hover then
         local entity = self:newEntity(hover, x, y, z)
         self:addToEntitiesList(entity)
@@ -218,9 +206,9 @@ function layout:controllerreleased(controller, button)
   if button == 'menu' or button == 'b' or button == 'y' then
     self.controllers[controller].menuPressed = false
 
-    if self.satchel.following then
-      self.satchel:reposition()
-      self.satchel.following = nil
+    if satchel.following then
+      satchel:reposition()
+      satchel.following = nil
     end
   end
 
@@ -384,41 +372,6 @@ function layout:setDefaultTools()
 	self:setToolTexture(toolTextureName)
 end
 
-function layout:drawSatchel()
-  -- if self.satchel.following then
-  --   self:positionSatchel()
-  -- end
-	--
-  -- local count = #loader.entityTypes
-  -- local spacing = self.satchel.itemSize * 2
-  -- local perRow = math.ceil(math.sqrt(count))
-  -- local rows = math.ceil(count / perRow)
-  -- local y = spacing * (rows - 1) / 2
-	--
-  -- lovr.graphics.push()
-  -- lovr.graphics.transform(self.satchel.transform)
-	--
-  -- for i = 1, rows do
-  --   local x = -spacing * (perRow - 1) / 2
-	--
-  --   for j = 1, perRow do
-  --     local entityType = loader.entityTypes[loader.entityTypes[(i - 1) * perRow + j]]
-	--
-  --     if entityType then
-  --       local minx, maxx, miny, maxy, minz, maxz = entityType.model:getAABB()
-  --       local cx, cy, cz = (minx + maxx) / 2 * entityType.baseScale, (miny + maxy) / 2 * entityType.baseScale, (minz + maxz) / 2 * entityType.baseScale
-  --       entityType.model:draw(x - cx, y - cy, 0 - cz, entityType.baseScale, lovr.timer.getTime() * .2, 0, 1, 0)
-  --     end
-	--
-  --     x = x + spacing
-  --   end
-	--
-  --   y = y - spacing
-  -- end
-	--
-  -- lovr.graphics.pop()
-end
-
 function layout:drawCursors()
   for _, controller in ipairs(self.controllers) do
     local cursor = self:cursorPos(controller)
@@ -568,7 +521,7 @@ function layout:endResizeWorld()
   self:resetDefaults()
 end
 
-function layout:beginScale(controller, otherController, entity)
+function layout:beginScale(entity, controller, otherController)
   self:setActiveTools()
 	local controller = self.controllers[controller]
 
@@ -720,7 +673,7 @@ function layout:newEntity(typeId, x, y, z)
   local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
   local cx, cy, cz = (minx + maxx) / 2 * t.baseScale, (miny + maxy) / 2 * t.baseScale, (minz + maxz) / 2 * t.baseScale
   entity.x, entity.y, entity.z = x - cx, y - cy, z - cz
-  entity.angle, entity.ax, entity.ay, entity.az = -self.satchel.yaw + lovr.timer.getTime() * .2, 0, 1, 0
+  entity.angle, entity.ax, entity.ay, entity.az = -satchel.yaw + lovr.timer.getTime() * .2, 0, 1, 0
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
 
   return entity
@@ -745,75 +698,6 @@ end
 function layout:clearEntities()
   self.entities = {}
 end
-
--- function layout:loadEntityTypes()
---   local path = 'models'
---   local files = lovr.filesystem.getDirectoryItems(path)
---   loader.entityTypes = {}
---   self.satchelItemSize = .09
---
---   for i, file in ipairs(files) do
---     if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') or file:match('%.dae$') then
---       local id = file:gsub('%.%a+$', '')
---       local modelPath = path .. '/' .. file
---       local model = lovr.graphics.newModel(modelPath)
---       model:setMaterial(self.mainMaterial)
---
---       local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
---       local width, height, depth = maxx - minx, maxy - miny, maxz - minz
---       local baseScale = self.satchelItemSize / math.max(width, height, depth)
---
---       loader.entityTypes[id] = {
---         model = model,
---         baseScale = baseScale
---       }
---
---       table.insert(loader.entityTypes, id)
---     end
---   end
--- end
-
--- local tmp1, tmp2 = vector(), vector()
--- function layout:getSatchelHover(controller)
---   if not self.satchel.active then return end
---
---   local count = #loader.entityTypes -- probably change to paginated total?
---   local spacing = self.satchel.itemSize * 2
---   local perRow = math.ceil(math.sqrt(count))
---   local rows = math.ceil(count / perRow)
---   local y = spacing * (rows - 1) / 2
---
---   tmp2:set(self:cursorPos(controller))
---
---   for i = 1, rows do
---     local x = -spacing * (perRow - 1) / 2
---
---     for j = 1, perRow do
--- 			print((i - 1) * perRow + j)
--- 			print(loader:getEntityById((i - 1) * perRow + j))
---       local id = loader:getEntityById((i - 1) * perRow + j) -- loader.entityTypes[(i - 1) * perRow + j]
---       tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
---
---       if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
---         return id, tmp1:unpack()
---       end
---
---       x = x + spacing
---     end
---
---     y = y - spacing
---   end
--- end
-
--- function layout:positionSatchel()
---   local x, y, z = self.satchel.following:getPosition()
---   local hx, hy, hz = lovr.headset.getPosition()
---   local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, x, 0, z)
---   self.satchel.transform:origin()
---   self.satchel.transform:translate(x, y, z)
---   self.satchel.transform:rotate(angle, ax, ay, az)
---   self.satchel.yaw = angle
--- end
 
 function layout:getClosestEntity(controller)
   local x, y, z = self.controllers[controller].object:getPosition()
@@ -868,14 +752,14 @@ function layout:isHovered(entity)
 end
 
 function layout:checkSave()
-  if self.isDirty and lovr.timer.getTime() - self.lastChange > 3 then
+  if self.hasUnsavedChange and lovr.timer.getTime() - self.lastChange > 3 then
     self:save()
-    self.isDirty = false
+    self.hasUnsavedChange = false
   end
 end
 
 function layout:dirty()
-  self.isDirty = true
+  self.hasUnsavedChange = true
   self.lastChange = lovr.timer.getTime()
 end
 
