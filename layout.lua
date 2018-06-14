@@ -43,7 +43,7 @@ function layout:init()
 	self.entities = {}
   self.grid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
   self.tokens = {
-    { model = lovr.graphics.newModel('tools/token.obj'), material = lovr.graphics.newMaterial('tools/copy.png') }
+    { model = lovr.graphics.newModel('toolsUI/token.obj'), material = lovr.graphics.newMaterial('toolsUI/copy.png') }
   }
 
   self.resizeWorld = false
@@ -240,7 +240,7 @@ function layout:refreshControllers()
     self.controllers[controller] = {
       index = i,
       object = controller,
-      model = lovr.graphics.newModel('tools/controller.obj', 'tools/controller.png'),
+      model = lovr.graphics.newModel('toolsUI/controller.obj', 'toolsUI/controller.png'),
       currentPosition = vector(),
       lastPosition = vector(),
       activeEntity = nil,
