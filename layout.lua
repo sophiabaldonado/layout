@@ -4,6 +4,7 @@ local quat = maf.quat
 local json = require 'json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
+local http = require 'luajit-request'
 
 local function angle(x1, y1, x2, y2)
   return math.atan2(y2 - y1, x2 - x1)
@@ -17,6 +18,15 @@ end
 local layout = {}
 
 function layout:init()
+	local response = json.decode(http.send('https://poly.googleapis.com/v1/assets/fCT73jIf5jN?key=APIKEY').body)
+	local tree = response.formats[1]
+	local treeBlob = lovr.data.newBlob(http.send(tree.root.url).body, 'pine tree')
+	lovr.filesystem.write('blob.obj', treeBlob:getString())
+	local pngBlob = lovr.data.newBlob(http.send(tree.resources[2].url).body)
+
+	polyModel = lovr.graphics.newModel('blob.obj', lovr.graphics.newMaterial(lovr.graphics.newTexture(pngBlob)))
+
+
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
@@ -60,7 +70,7 @@ function layout:init()
 
   self.resizeWorld = false
 
-	self:load('default')
+	--self:load('default')
 end
 
 function layout:update(dt)
@@ -103,6 +113,7 @@ function layout:update(dt)
 end
 
 function layout:draw()
+	polyModel:draw()
   self:updateControllers()
 
 	if self.active then
@@ -423,10 +434,10 @@ function layout:drawCursors()
 
 		if (self.activeColor ~= self.colors.default) then
 			lovr.graphics.setColor(self.activeColor)
-			lovr.graphics.sphere(x, y, z, .005, angle, ax, ay, az)
+			lovr.graphics.sphere(x, y, z, .005)
 			lovr.graphics.setColor(self.colors.default)
 		else
-			lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
+			lovr.graphics.cube('fill', x, y, z, .01)
 		end
   end
 end
