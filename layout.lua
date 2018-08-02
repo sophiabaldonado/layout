@@ -1,10 +1,18 @@
 local maf = require 'maf'
 local vector = maf.vector
 local quat = maf.quat
-local util = require 'util'
 local json = require 'json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
+
+local function angle(x1, y1, x2, y2)
+  return math.atan2(y2 - y1, x2 - x1)
+end
+
+local function distance(x1, y1, x2, y2)
+  local dx, dy = x2 - x1, y2 - y1
+  return math.sqrt(dx * dx + dy * dy)
+end
 
 local layout = {}
 
@@ -61,10 +69,10 @@ function layout:update(dt)
   if self.active then
 		local hasHover, hasActive = false, false
 
-    util.each(self.entities, function(entity)
+    for _, entity in pairs(self.entities) do
       entity.wasHovered = entity.wasHovered or {}
       entity.isHovered = entity.isHovered or {}
-      util.each(self.controllers, function(controller)
+      for _, controller in ipairs(self.controllers) do
 				local c = self.controllers[controller]
 
         entity.wasHovered[controller] = entity.isHovered[controller]
@@ -78,8 +86,8 @@ function layout:update(dt)
         end
 
 				hasActive = hasActive or (c.drag.active or c.scale.active or c.rotate.active)
-      end, ipairs)
-    end)
+      end
+    end
 
 		if hasActive then
 			self:setActiveTools()
@@ -120,7 +128,7 @@ function layout:drawToolUI()
   local toolTexture = self.toolTexture
 
 	lovr.graphics.setColor(self.colors.default)
-  util.each(self.controllers, function(controller)
+  for _, controller in ipairs(self.controllers) do
     local x, y, z = controller:getPosition()
     local angle, ax, ay, az = controller:getOrientation()
 		lovr.graphics.push()
@@ -128,7 +136,7 @@ function layout:drawToolUI()
 		lovr.graphics.rotate(angle, ax, ay, az)
     lovr.graphics.plane(self.toolMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
 		lovr.graphics.pop()
-  end, ipairs)
+  end
 end
 
 function layout:setToolTexture(name)
@@ -140,7 +148,7 @@ end
 function layout:controllerpressed(controller, button)
   if button == 'touchpad' then
     local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
-    local angle, distance = util.angle(0, 0, touchx, touchy), util.distance(0, 0, touchx, touchy)
+    local angle, distance = angle(0, 0, touchx, touchy), distance(0, 0, touchx, touchy)
     local threshold = 0
     while angle < 0 do angle = angle + 2 * math.pi end
     if distance >= threshold then
@@ -267,7 +275,7 @@ function layout:refreshControllers()
 end
 
 function layout:updateControllers()
-  util.each(self.controllers, function(controller)
+  for _, controller in ipairs(self.controllers) do
 		local controller = self.controllers[controller]
 		controller.currentPosition:set(self:cursorPos(controller.object))
 
@@ -278,7 +286,7 @@ function layout:updateControllers()
     if controller.scale.active then self:updateScale(controller) end
 
     controller.lastPosition:set(controller.currentPosition)
-  end, ipairs)
+  end
 end
 
 function layout:setActiveTools()
@@ -424,7 +432,7 @@ function layout:drawCursors()
 end
 
 function layout:drawEntities()
-  util.each(self.entities, function(entity)
+  for _, entity in ipairs(self.entities) do
     local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
     local cx, cy, cz = (minx + maxx) / 2 * entity.scale, (miny + maxy) / 2 * entity.scale, (minz + maxz) / 2 * entity.scale
     lovr.graphics.push()
@@ -435,7 +443,7 @@ function layout:drawEntities()
     lovr.graphics.pop()
 
     if self.active then self:drawEntityUI(entity) end
-  end, ipairs)
+  end
 end
 
 function layout:drawEntityUI(entity)
@@ -546,9 +554,6 @@ end
 
 function layout:updateResizeWorld(controller)
   local distance = 1 + (controller.currentPosition.y - controller.lastPosition.y)
-  util.each(self.entities, function(entity)
-    --self:updateEntityScale(entity, distance)
-  end)
   self:dirty()
 end
 
@@ -673,7 +678,7 @@ end
 
 local tokenPos = vector()
 function layout:drawTokens()
-  util.each(self.controllers, function(controller)
+  for _, controller in ipairs(self.controllers) do
     local x, y, z = controller:getPosition()
     local angle, ax, ay, az = controller:getOrientation()
     -- local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
@@ -684,7 +689,7 @@ function layout:drawTokens()
       token.model:draw(x, y, z, .25, angle, ax, ay, az)
       lovr.graphics.plane(token.material, x, y, z, .08, .08, angle, ax, ay, az)
     end
-  end, ipairs)
+  end
 end
 
 function layout:orientationToVector(angle, ax, ay, az)
@@ -805,13 +810,13 @@ end
 function layout:getClosestEntity(controller)
   local x, y, z = self.controllers[controller].object:getPosition()
   local minDistance, closestEntity = math.huge, nil
-  util.each(self.entities, function(entity)
+  for _, entity in pairs(self.entities) do
     local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
     if d < minDistance and self:isHoveredByController(entity, controller) then
       minDistance = d
       closestEntity = entity
     end
-  end)
+  end
   return closestEntity, math.sqrt(minDistance)
 end
 
@@ -901,11 +906,11 @@ function layout:load(filename)
   self.data = json.decode(lovr.filesystem.read(path))
 
 	if self.data.entities then
-		util.each(self.data.entities, function(entity)
+    for _, entity in ipairs(self.data.entities) do
 			local entity = self:loadNewEntity(entity.entityType, entity.transform)
 			self.entities[entity] = entity
 			table.insert(self.entities, entity)
-		end, ipairs)
+		end
 	end
 end
 
