@@ -8,12 +8,15 @@ local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 local loader = require 'loader'
 local satchel = require 'satchel'
+local config = require 'config'
+local controllers = require 'controllers'
 
 local layout = {}
 
 function layout:init()
 	loader:init()
 	satchel:init(loader)
+	controllers:init()
 	self.hasUnsavedChange = false
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
@@ -24,7 +27,7 @@ function layout:init()
   self.mainMaterial:setTexture(texture)
 
   self:setDefaultTools()
-  self:refreshControllers()
+	self.controllers = controllers.get()
 
 	self.colors = {
 		default = { 1, 1, 1 },
@@ -225,61 +228,6 @@ function layout:controllerreleased(controller, button)
   end
 end
 
-function layout:controlleradded(controller)
-  self:refreshControllers()
-end
-
-function layout:controllerremoved(controller)
-  self:refreshControllers()
-end
-
-function layout:refreshControllers()
-  self.controllers = {}
-
-  for i, controller in ipairs(lovr.headset.getControllers()) do
-    self.controllers[controller] = {
-      index = i,
-      object = controller,
-      model = lovr.graphics.newModel('toolsUI/controller.obj', 'toolsUI/controller.png'),
-      currentPosition = vector(),
-      lastPosition = vector(),
-      activeEntity = nil,
-      drag = {
-        active = false,
-        offset = vector(),
-        counter = 0
-      },
-      scale = {
-        active = false,
-        lastDistance = 0,
-        counter = 0
-      },
-      rotate = {
-        active = false,
-        original = quat(),
-        originalPosition = vector(),
-        counter = 0
-      }
-    }
-    table.insert(self.controllers, controller)
-  end
-end
-
-function layout:updateControllers()
-  util.each(self.controllers, function(controller)
-		local controller = self.controllers[controller]
-		controller.currentPosition:set(self:cursorPos(controller.object))
-
-    if self.resizeWorld then self:updateResizeWorld(controller) end
-
-    if controller.drag.active then self:updateDrag(controller) end
-    if controller.rotate.active then self:updateRotate(controller) end
-    if controller.scale.active then self:updateScale(controller) end
-
-    controller.lastPosition:set(controller.currentPosition)
-  end, ipairs)
-end
-
 function layout:setActiveTools()
   self.tools.up = function() self.axisLock.y = not self.axisLock.y end
   self.tools.left = function() self.axisLock.x = not self.axisLock.x end
@@ -294,7 +242,8 @@ function layout:setHoverTools()
 		for i = #self.entities, 1, -1 do
 			local entity = self.entities[i]
 			if self:isHovered(entity) and not entity.locked then
-				self:removeEntity(entity)
+				hover.joystick3.activate()
+				-- self:removeEntity(entity)
 			end
 		end
 	end
@@ -303,24 +252,25 @@ function layout:setHoverTools()
     for i = #self.entities, 1, -1 do
 			local entity = self.entities[i]
 			if self:isHovered(entity) then
-				entity.locked = not entity.locked
+				hover.joystick1.activate(entity)
+				-- entity.locked = not entity.locked
 			end
 		end
 	end
 
-  local function copyHovered()
-    local entity
-    for i = #self.entities, 1, -1 do
-      local controller = self:isHovered(self.entities[i])
-      if controller then
-  			entity = self:getClosestEntity(controller)
-      end
-		end
-    if entity then
-      local newEntity = self:newEntityCopy(entity)
-      self:addToEntitiesList(newEntity)
-    end
-	end
+  -- local function copyHovered()
+  --   local entity
+  --   for i = #self.entities, 1, -1 do
+  --     local controller = self:isHovered(self.entities[i])
+  --     if controller then
+  -- 			entity = self:getClosestEntity(controller)
+  --     end
+	-- 	end
+  --   if entity then
+  --     local newEntity = self:newEntityCopy(entity)
+  --     self:addToEntitiesList(newEntity)
+  --   end
+	-- end
 
   local function setHoverToolsTexture()
     for i = #self.entities, 1, -1 do
@@ -332,7 +282,8 @@ function layout:setHoverTools()
     end
   end
 
-  self.tools.up = function() copyHovered() end
+	local h = config.hovered
+  self.tools.up = function() h.joystick1() end
   self.tools.left = function() print('left') end
   self.tools.right = function() lockHovered() end
   self.tools.down = function() deleteHovered() end
@@ -340,14 +291,14 @@ function layout:setHoverTools()
   setHoverToolsTexture()
 end
 
-function layout:newEntityCopy(entity)
-	local newEntity = {}
-  newEntity.model, newEntity.scale, newEntity.typeId, newEntity.locked = entity.model, entity.scale, entity.typeId, false
-	newEntity.x, newEntity.y, newEntity.z = entity.x + .1, entity.y + .1, entity.z + .1
-  newEntity.angle, newEntity.ax, newEntity.ay, newEntity.az = entity.angle, entity.ax, entity.ay, entity.az
-
-  return newEntity
-end
+-- function layout:newEntityCopy(entity)
+-- 	local newEntity = {}
+--   newEntity.model, newEntity.scale, newEntity.typeId, newEntity.locked = entity.model, entity.scale, entity.typeId, false
+-- 	newEntity.x, newEntity.y, newEntity.z = entity.x + .1, entity.y + .1, entity.z + .1
+--   newEntity.angle, newEntity.ax, newEntity.ay, newEntity.az = entity.angle, entity.ax, entity.ay, entity.az
+--
+--   return newEntity
+-- end
 
 function layout:setDefaultTools()
 	local function toggleActive()
