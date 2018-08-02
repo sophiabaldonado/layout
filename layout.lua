@@ -21,10 +21,8 @@ function layout:init()
 	self.lastChange = lovr.timer.getTime()
   self.tools = {}
   self.axisLock = { x = false, y = false, z = false }
-  local texture = lovr.graphics.newTexture('models/texture1.png')
-  self.mainMaterial = lovr.graphics.newMaterial()
+
   self.toolMaterial = lovr.graphics.newMaterial()
-  self.mainMaterial:setTexture(texture)
 
   self:setDefaultTools()
   self:loadEntityTypes()
@@ -57,8 +55,6 @@ function layout:init()
   self.tokens = {
     { model = lovr.graphics.newModel('tools/token.obj'), material = lovr.graphics.newMaterial('tools/copy.png') }
   }
-
-	self:load('default')
 end
 
 function layout:update(dt)
@@ -434,7 +430,6 @@ function layout:drawEntityUI(entity)
   local highA = .784
   if self:isHovered(entity) then a = highA end
 
-
   local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
@@ -719,7 +714,6 @@ function layout:loadEntityTypes()
       local id = file:gsub('%.%a+$', '')
       local modelPath = path .. '/' .. file
       local model = lovr.graphics.newModel(modelPath)
-      model:setMaterial(self.mainMaterial)
 
       local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
       local width, height, depth = maxx - minx, maxy - miny, maxz - minz
