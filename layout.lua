@@ -20,11 +20,11 @@ local layout = {}
 function layout:init()
 	local response = json.decode(http.send('https://poly.googleapis.com/v1/assets/fCT73jIf5jN?key=APIKEY').body)
 	local tree = response.formats[1]
-	local treeBlob = lovr.data.newBlob(http.send(tree.root.url).body, 'pine tree')
-	lovr.filesystem.write('blob.obj', treeBlob:getString())
+	local treeBlob = lovr.data.newBlob(http.send(tree.root.url).body, 'pinetree.obj')
 	local pngBlob = lovr.data.newBlob(http.send(tree.resources[2].url).body)
+	local treeMat = lovr.graphics.newMaterial(lovr.graphics.newTexture(pngBlob))
 
-	polyModel = lovr.graphics.newModel('blob.obj', lovr.graphics.newMaterial(lovr.graphics.newTexture(pngBlob)))
+	polyModel = lovr.graphics.newModel(treeBlob, treeMat)
 
 
 	self.isDirty = false
