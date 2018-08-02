@@ -2,8 +2,7 @@ local maf = require 'maf'
 local vector = maf.vector
 local quat = maf.quat
 local util = require 'util'
-local grid = require 'grid'
-local json = require('json')
+local json = require 'json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
@@ -46,8 +45,6 @@ function layout:init()
     transform = lovr.math.newTransform(),
     yaw = 0
   }
-
-  self.grid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
 
   self.tokens = {
     { model = lovr.graphics.newModel('tools/token.obj'), material = lovr.graphics.newMaterial('tools/copy.png') }
@@ -99,8 +96,6 @@ end
 
 function layout:draw()
   self:updateControllers()
-
-	self.grid:draw()
 
 	if self.active then
 		self:drawCursors()
