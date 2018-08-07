@@ -4,8 +4,7 @@ local quat = maf.quat
 local json = require 'json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
-local http = require 'luajit-request'
-
+local poly = require 'poly'
 local function angle(x1, y1, x2, y2)
   return math.atan2(y2 - y1, x2 - x1)
 end
@@ -18,14 +17,7 @@ end
 local layout = {}
 
 function layout:init()
-	local response = json.decode(http.send('https://poly.googleapis.com/v1/assets/fCT73jIf5jN?key=APIKEY').body)
-	local tree = response.formats[1]
-	local treeBlob = lovr.data.newBlob(http.send(tree.root.url).body, 'pinetree.obj')
-	local pngBlob = lovr.data.newBlob(http.send(tree.resources[2].url).body)
-	local treeMat = lovr.graphics.newMaterial(lovr.graphics.newTexture(pngBlob))
-
-	polyModel = lovr.graphics.newModel(treeBlob, treeMat)
-
+	poly:init()
 
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
@@ -113,8 +105,8 @@ function layout:update(dt)
 end
 
 function layout:draw()
-	polyModel:draw()
   self:updateControllers()
+	poly:draw()
 
 	if self.active then
 		self:drawCursors()
