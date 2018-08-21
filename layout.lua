@@ -6,6 +6,7 @@ local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
 local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
+local dot = base:match('%.') and '.' or '/'
 
 local function angle(x1, y1, x2, y2)
   return math.atan2(y2 - y1, x2 - x1)
@@ -57,6 +58,14 @@ function layout:init()
   self.tokens = {
     { model = lovr.graphics.newModel('resources/token.obj'), material = lovr.graphics.newMaterial('resources/copy.png') }
   }
+
+  self.tools = {}
+
+  for _, t in ipairs({ 'drag' }) do
+    table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
+  end
+
+  self:eachTool('init')
 end
 
 function layout:update(dt)
@@ -96,6 +105,8 @@ function layout:update(dt)
     self.satchel.active = false
     self.satchel.following = nil
   end
+
+  self:eachTool('update', dt)
 end
 
 function layout:draw()
@@ -116,6 +127,7 @@ function layout:draw()
     c.model:draw(x, y, z, 1, controller:getOrientation())
   end
 
+  self:eachTool('draw')
   self:drawEntities()
   self:drawActionUI()
 end
@@ -157,7 +169,6 @@ function layout:controllerpressed(controller, button)
   end
 
   if self.active then
-
     local entity = self:getClosestEntity(controller)
     local otherController = self:getOtherController(self.controllers[controller])
 
@@ -194,8 +205,9 @@ function layout:controllerpressed(controller, button)
         self:beginDrag(controller, entity)
       end
     end
-
   end
+
+  self:eachTool('controllerpressed', controller, button)
 end
 
 function layout:controllerreleased(controller, button)
@@ -214,6 +226,8 @@ function layout:controllerreleased(controller, button)
   elseif button == 'grip' then
     self:endRotate(controller)
   end
+
+  self:eachTool('controllerreleased', controller, button)
 end
 
 function layout:controlleradded(controller)
@@ -889,6 +903,12 @@ function layout:loadNewEntity(typeId, transform)
   entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
 
   return entity
+end
+
+function layout:eachTool(action, ...)
+  for _, tool in ipairs(self.tools) do
+    if tool[action] then tool[action](tool, ...) end
+  end
 end
 
 return layout

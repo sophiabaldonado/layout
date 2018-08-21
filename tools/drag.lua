@@ -47,6 +47,7 @@ function Drag:controllerreleased(controller, button)
 end
 
 function Drag:grab(entity, controller)
+  self.active = true
   self.entity = entity
   self.controller = controller
 
@@ -57,6 +58,7 @@ function Drag:grab(entity, controller)
 end
 
 function Drag:ungrab()
+  self.active = false
   self.entity, self.controller = nil, nil
   self.offset.x, self.offset.y, self.offset.z = 0, 0, 0
 end
