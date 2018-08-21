@@ -84,13 +84,14 @@ function layout:update(dt)
         entity.isHovered[controller] = self:isHoveredByController(entity, controller)
         hasHover = hasHover or (entity.isHovered[controller])
 
+        -- Bzz when controller enters entity
         if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
-          if not c.drag.active and not c.scale.active and not c.rotate.active then
+          if not c.scale.active and not c.rotate.active then
             self.controllers[controller].object:vibrate(.002)
           end
         end
 
-        hasActive = hasActive or (c.drag.active or c.scale.active or c.rotate.active)
+        hasActive = hasActive or (c.scale.active or c.rotate.active)
       end
     end
 
@@ -173,36 +174,20 @@ function layout:controllerpressed(controller, button)
     local otherController = self:getOtherController(self.controllers[controller])
 
     if button == 'menu' or button == 'b' or button == 'y' then
+
+      -- TODO clear tool
       self.controllers[controller].menuPressed = true
       if otherController and otherController.menuPressed then
         self:clearEntities()
       end
 
+      -- TODO satchel tool
       if not self.satchel.active then
         self.satchel.active = true
         self.satchel.following = controller
       else
         self.satchel.active = false
         self.satchel.following = nil
-      end
-    end
-
-    if entity and not entity.locked then
-      if button == 'trigger' then
-        if otherController and otherController.drag.active and otherController.activeEntity == entity then
-          self:beginScale(controller, otherController, entity)
-        else
-          self:beginDrag(controller, entity)
-        end
-      elseif button == 'grip' then
-        self:beginRotate(controller, entity)
-      end
-    else
-      local hover, x, y, z = self:getSatchelHover(controller)
-      if button == 'trigger' and hover then
-        local entity = self:newEntity(hover, x, y, z)
-        self:addToEntitiesList(entity)
-        self:beginDrag(controller, entity)
       end
     end
   end
@@ -222,7 +207,6 @@ function layout:controllerreleased(controller, button)
 
   if button == 'trigger' then
     self:endScale(controller)
-    self:endDrag(controller)
   elseif button == 'grip' then
     self:endRotate(controller)
   end
@@ -249,11 +233,6 @@ function layout:refreshControllers()
       currentPosition = vector(),
       lastPosition = vector(),
       activeEntity = nil,
-      drag = {
-        active = false,
-        offset = vector(),
-        counter = 0
-      },
       scale = {
         active = false,
         lastDistance = 0,
@@ -274,10 +253,6 @@ function layout:updateControllers()
   for _, controller in ipairs(self.controllers) do
     local controller = self.controllers[controller]
     controller.currentPosition:set(self:cursorPos(controller.object))
-
-    if controller.drag.active then self:updateDrag(controller) end
-    if controller.rotate.active then self:updateRotate(controller) end
-    if controller.scale.active then self:updateScale(controller) end
 
     controller.lastPosition:set(controller.currentPosition)
   end
@@ -488,59 +463,6 @@ function layout:drawEntityUI(entity)
   lovr.graphics.setColor(self.colors.default)
 end
 
-function layout:beginDrag(controller, entity)
-  self.axisLock = { x = false, y = false, z = false }
-  self:setActiveActions()
-  local controller = self.controllers[controller]
-  local entityPosition = vector(entity.x, entity.y, entity.z)
-  controller.activeEntity = entity
-  controller.drag.active = true
-  controller.drag.offset = entityPosition - controller.currentPosition
-  controller.drag.counter = 0
-  self.activeColor = self.colors.green
-end
-
-local tmpVector1 = vector()
-local tmpVector2 = vector()
-function layout:updateDrag(controller)
-  local otherController = self:getOtherController(controller)
-  if controller.scale.active or (otherController and otherController.scale.active) then return end
-  local newPosition = controller.currentPosition + controller.drag.offset
-  local t = controller.activeEntity
-
-  local delta = tmpVector1
-  delta:set(t.x, t.y, t.z)
-  newPosition:sub(delta, delta)
-
-  local isLocked = false
-  for axis, locked in pairs(self.axisLock) do
-    isLocked = isLocked or locked
-  end
-
-  delta.x = (not isLocked or self.axisLock.x) and delta.x or 0
-  delta.y = (not isLocked or self.axisLock.y) and delta.y or 0
-  delta.z = (not isLocked or self.axisLock.z) and delta.z or 0
-
-  controller.drag.counter = controller.drag.counter + delta:length()
-  if controller.drag.counter >= .1 then
-    controller.object:vibrate(.001)
-    controller.drag.counter = 0
-  end
-
-  self:updateEntityPosition(controller.activeEntity, delta:unpack())
-  self:dirty()
-end
-
-function layout:updateEntityPosition(entity, dx, dy, dz)
-  local t = entity
-  t.x, t.y, t.z = t.x + dx, t.y + dy, t.z + dz
-end
-
-function layout:endDrag(controller)
-  self.controllers[controller].drag.active = false
-  self:resetDefaults()
-end
-
 function layout:beginScale(controller, otherController, entity)
   self:setActiveActions()
   local controller = self.controllers[controller]
@@ -579,11 +501,6 @@ function layout:endScale(controller)
 
   if otherController then
     otherController.scale.active = false
-    if otherController.drag.active then
-      local entity = otherController.activeEntity
-      local entityPosition = vector(entity.x, entity.y, entity.z)
-      otherController.drag.offset = entityPosition - otherController.currentPosition
-    end
   end
 
   controller.scale.active = false

@@ -20,8 +20,11 @@ function Drag:update(dt)
   -- Move the entity
   local x, y, z = controller:getPosition()
   x, y, z = x + self.offset.x, y + self.offset.y, z + self.offset.z
-  local dx, dy, dz = x - self.entity.position.x, y - self.entity.position.y, z - self.entity.position.z
-  self.entity:move(dx, dy, dz)
+  local dx, dy, dz = x - self.entity.x, y - self.entity.y, z - self.entity.z
+  local locked = next(self.lock)
+  local lx, ly, lz = not locked or self.lock.x, not locked or self.lock.y, not locked or self.lock.z
+  dx, dy, dz = lx and dx or 0, ly and dy or 0, lz and dz or 0 -- idk if this works
+  self.entity.x, self.entity.y, self.entity.z = self.entity.x + dx, self.entity.y + dy, self.entity.z + dz
 
   -- Bzz every .1m
   self.bzz = self.bzz + math.sqrt(dx ^ 2 + dy ^ 2 + dz ^ 2)
@@ -52,15 +55,14 @@ function Drag:grab(entity, controller)
   self.controller = controller
 
   local x, y, z = controller:getPosition()
-  self.offset.x = entity.position.x - x
-  self.offset.y = entity.position.y - y
-  self.offset.z = entity.position.z - z
+  self.offset.x, self.offset.y, self.offset.z = entity.x - x, entity.y - y, entity.z - z
 end
 
 function Drag:ungrab()
   self.active = false
   self.entity, self.controller = nil, nil
   self.offset.x, self.offset.y, self.offset.z = 0, 0, 0
+  self.layout:dirty()
 end
 
 return Drag
