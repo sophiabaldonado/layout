@@ -135,7 +135,7 @@ end
 
 function layout:setToolTexture(name)
   self.toolTextures = self.toolTextures or {}
-  self.toolTextures[name] = self.toolTextures[name] or lovr.graphics.newTexture(name..'.png')
+  self.toolTextures[name] = self.toolTextures[name] or lovr.graphics.newTexture('resources/' .. name .. '.png')
   self.toolMaterial:setTexture(self.toolTextures[name])
 end
 
