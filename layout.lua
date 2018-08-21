@@ -53,7 +53,7 @@ function layout:init()
   }
 
   self.tokens = {
-    { model = lovr.graphics.newModel('tools/token.obj'), material = lovr.graphics.newMaterial('tools/copy.png') }
+    { model = lovr.graphics.newModel('resources/token.obj'), material = lovr.graphics.newMaterial('resources/copy.png') }
   }
 end
 
@@ -229,7 +229,7 @@ function layout:refreshControllers()
     self.controllers[controller] = {
       index = i,
       object = controller,
-      model = lovr.graphics.newModel('tools/controller.obj', 'tools/controller.png'),
+      model = lovr.graphics.newModel('resources/controller.obj', 'resources/controller.png'),
       currentPosition = vector(),
       lastPosition = vector(),
       activeEntity = nil,
