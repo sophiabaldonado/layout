@@ -19,8 +19,8 @@ end
 local layout = {}
 
 function layout:init()
-	self.isDirty = false
-	self.lastChange = lovr.timer.getTime()
+  self.isDirty = false
+  self.lastChange = lovr.timer.getTime()
   self.actions = {}
   self.axisLock = { x = false, y = false, z = false }
 
@@ -30,21 +30,21 @@ function layout:init()
   self:loadEntityTypes()
   self:refreshControllers()
 
-	self.colors = {
-		default = { 1, 1, 1 },
-		green = { .349, .804, .4667 },
-		red = { .863, .357, .357 },
-		blue = { .223, .459, .890 },
-		orange = { .941, .561, .278 }
-	}
-	self.activeColor = self.colors.default
+  self.colors = {
+    default = { 1, 1, 1 },
+    green = { .349, .804, .4667 },
+    red = { .863, .357, .357 },
+    blue = { .223, .459, .890 },
+    orange = { .941, .561, .278 }
+  }
+  self.activeColor = self.colors.default
 
   self.active = true
 
   local actionTextureName = self.active and 'play' or 'stop'
-	self:setActionTexture(actionTextureName)
+  self:setActionTexture(actionTextureName)
 
-	self.entities = {}
+  self.entities = {}
 
   self.satchel = {
     active = false,
@@ -60,20 +60,20 @@ function layout:init()
 end
 
 function layout:update(dt)
-	self:checkSave()
+  self:checkSave()
 
   if self.active then
-		local hasHover, hasActive = false, false
+    local hasHover, hasActive = false, false
 
     for _, entity in pairs(self.entities) do
       entity.wasHovered = entity.wasHovered or {}
       entity.isHovered = entity.isHovered or {}
       for _, controller in ipairs(self.controllers) do
-				local c = self.controllers[controller]
+        local c = self.controllers[controller]
 
         entity.wasHovered[controller] = entity.isHovered[controller]
         entity.isHovered[controller] = self:isHoveredByController(entity, controller)
-				hasHover = hasHover or (entity.isHovered[controller])
+        hasHover = hasHover or (entity.isHovered[controller])
 
         if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
           if not c.drag.active and not c.scale.active and not c.rotate.active then
@@ -81,57 +81,57 @@ function layout:update(dt)
           end
         end
 
-				hasActive = hasActive or (c.drag.active or c.scale.active or c.rotate.active)
+        hasActive = hasActive or (c.drag.active or c.scale.active or c.rotate.active)
       end
     end
 
-		if hasActive then
-			self:setActiveActions()
-		elseif hasHover then
-			self:setHoverActions()
-		else
-			self:setDefaultActions()
-		end
-	else
-		self.satchel.active = false
-		self.satchel.following = nil
-	end
+    if hasActive then
+      self:setActiveActions()
+    elseif hasHover then
+      self:setHoverActions()
+    else
+      self:setDefaultActions()
+    end
+  else
+    self.satchel.active = false
+    self.satchel.following = nil
+  end
 end
 
 function layout:draw()
   self:updateControllers()
 
-	if self.active then
-		self:drawCursors()
+  if self.active then
+    self:drawCursors()
 
-		if self.satchel.active then
-			self:drawSatchel()
-		end
-	end
+    if self.satchel.active then
+      self:drawSatchel()
+    end
+  end
 
-	for i, controller in ipairs(self.controllers) do
-		local c = self.controllers[controller]
-		local x, y, z = controller:getPosition()
-		lovr.graphics.setColor(self.colors.default)
-		c.model:draw(x, y, z, 1, controller:getOrientation())
-	end
+  for i, controller in ipairs(self.controllers) do
+    local c = self.controllers[controller]
+    local x, y, z = controller:getPosition()
+    lovr.graphics.setColor(self.colors.default)
+    c.model:draw(x, y, z, 1, controller:getOrientation())
+  end
 
   self:drawEntities()
-	self:drawActionUI()
+  self:drawActionUI()
 end
 
 function layout:drawActionUI()
   local actionTexture = self.actionTexture
 
-	lovr.graphics.setColor(self.colors.default)
+  lovr.graphics.setColor(self.colors.default)
   for _, controller in ipairs(self.controllers) do
     local x, y, z = controller:getPosition()
     local angle, ax, ay, az = controller:getOrientation()
-		lovr.graphics.push()
-		lovr.graphics.translate(x, y, z)
-		lovr.graphics.rotate(angle, ax, ay, az)
+    lovr.graphics.push()
+    lovr.graphics.translate(x, y, z)
+    lovr.graphics.rotate(angle, ax, ay, az)
     lovr.graphics.plane(self.actionMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
-		lovr.graphics.pop()
+    lovr.graphics.pop()
   end
 end
 
@@ -178,7 +178,7 @@ function layout:controllerpressed(controller, button)
 
     if entity and not entity.locked then
       if button == 'trigger' then
-  			if otherController and otherController.drag.active and otherController.activeEntity == entity then
+        if otherController and otherController.drag.active and otherController.activeEntity == entity then
           self:beginScale(controller, otherController, entity)
         else
           self:beginDrag(controller, entity)
@@ -258,8 +258,8 @@ end
 
 function layout:updateControllers()
   for _, controller in ipairs(self.controllers) do
-		local controller = self.controllers[controller]
-		controller.currentPosition:set(self:cursorPos(controller.object))
+    local controller = self.controllers[controller]
+    controller.currentPosition:set(self:cursorPos(controller.object))
 
     if controller.drag.active then self:updateDrag(controller) end
     if controller.rotate.active then self:updateRotate(controller) end
@@ -275,48 +275,48 @@ function layout:setActiveActions()
   self.actions.right = function() self.axisLock.z = not self.axisLock.z end
   self.actions.down = function() end
 
-	self:setActionTexture('active')
+  self:setActionTexture('active')
 end
 
 function layout:setHoverActions()
-	local function deleteHovered()
-		for i = #self.entities, 1, -1 do
-			local entity = self.entities[i]
-			if self:isHovered(entity) and not entity.locked then
-				self:removeEntity(entity)
-			end
-		end
-	end
+  local function deleteHovered()
+    for i = #self.entities, 1, -1 do
+      local entity = self.entities[i]
+      if self:isHovered(entity) and not entity.locked then
+        self:removeEntity(entity)
+      end
+    end
+  end
 
   local function lockHovered()
     for i = #self.entities, 1, -1 do
-			local entity = self.entities[i]
-			if self:isHovered(entity) then
-				entity.locked = not entity.locked
-			end
-		end
-	end
+      local entity = self.entities[i]
+      if self:isHovered(entity) then
+        entity.locked = not entity.locked
+      end
+    end
+  end
 
   local function copyHovered()
     local entity
     for i = #self.entities, 1, -1 do
       local controller = self:isHovered(self.entities[i])
       if controller then
-  			entity = self:getClosestEntity(controller)
+        entity = self:getClosestEntity(controller)
       end
-		end
+    end
     if entity then
       local newEntity = self:newEntityCopy(entity)
       self:addToEntitiesList(newEntity)
     end
-	end
+  end
 
   local function setHoverActionsTexture()
     for i = #self.entities, 1, -1 do
       local entity = self.entities[i]
       if self:isHovered(entity) then
         local actionTextureName = entity.locked and 'hoverLocked' or 'hover'
-				self:setActionTexture(actionTextureName)
+        self:setActionTexture(actionTextureName)
       end
     end
   end
@@ -330,20 +330,20 @@ function layout:setHoverActions()
 end
 
 function layout:newEntityCopy(entity)
-	local newEntity = {}
+  local newEntity = {}
   newEntity.model, newEntity.scale, newEntity.typeId, newEntity.locked = entity.model, entity.scale, entity.typeId, false
-	newEntity.x, newEntity.y, newEntity.z = entity.x + .1, entity.y + .1, entity.z + .1
+  newEntity.x, newEntity.y, newEntity.z = entity.x + .1, entity.y + .1, entity.z + .1
   newEntity.angle, newEntity.ax, newEntity.ay, newEntity.az = entity.angle, entity.ax, entity.ay, entity.az
 
   return newEntity
 end
 
 function layout:setDefaultActions()
-	local function toggleActive()
-		self.active = not self.active
-		local actionTextureName = self.active and 'play' or 'stop'
-		self:setActionTexture(actionTextureName)
-	end
+  local function toggleActive()
+    self.active = not self.active
+    local actionTextureName = self.active and 'play' or 'stop'
+    self:setActionTexture(actionTextureName)
+  end
 
   local function file()
     self:saveAsCopy()
@@ -357,8 +357,8 @@ function layout:setDefaultActions()
   self.actions.right = function() redo() end
   self.actions.down = function() file() end
 
-	local actionTextureName = self.active and 'play' or 'stop'
-	self:setActionTexture(actionTextureName)
+  local actionTextureName = self.active and 'play' or 'stop'
+  self:setActionTexture(actionTextureName)
 end
 
 function layout:drawSatchel()
@@ -401,13 +401,13 @@ function layout:drawCursors()
     local cursor = self:cursorPos(controller)
     x, y, z = cursor:unpack()
 
-		if (self.activeColor ~= self.colors.default) then
-			lovr.graphics.setColor(self.activeColor)
-			lovr.graphics.sphere(x, y, z, .005)
-			lovr.graphics.setColor(self.colors.default)
-		else
-			lovr.graphics.cube('fill', x, y, z, .01)
-		end
+    if (self.activeColor ~= self.colors.default) then
+      lovr.graphics.setColor(self.activeColor)
+      lovr.graphics.sphere(x, y, z, .005)
+      lovr.graphics.setColor(self.colors.default)
+    else
+      lovr.graphics.cube('fill', x, y, z, .01)
+    end
   end
 end
 
@@ -440,15 +440,15 @@ function layout:drawEntityUI(entity)
   lovr.graphics.translate(cx, cy, cz)
   lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
   lovr.graphics.translate(-cx, -cy, -cz)
-	if self:isHovered(entity) then
+  if self:isHovered(entity) then
     if entity.locked then
       r, g, b = unpack(self.colors.orange)
     end
-		lovr.graphics.setColor(r, g, b, a)
-	else
+    lovr.graphics.setColor(r, g, b, a)
+  else
     r, g, b = unpack(self.colors.default)
-		lovr.graphics.setColor(r, g, b, a)
-	end
+    lovr.graphics.setColor(r, g, b, a)
+  end
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.pop()
   for axis, locked in pairs(self.axisLock) do
@@ -483,7 +483,7 @@ function layout:beginDrag(controller, entity)
   controller.drag.active = true
   controller.drag.offset = entityPosition - controller.currentPosition
   controller.drag.counter = 0
-	self.activeColor = self.colors.green
+  self.activeColor = self.colors.green
 end
 
 local tmpVector1 = vector()
@@ -519,7 +519,7 @@ end
 
 function layout:updateEntityPosition(entity, dx, dy, dz)
   local t = entity
-	t.x, t.y, t.z = t.x + dx, t.y + dy, t.z + dz
+  t.x, t.y, t.z = t.x + dx, t.y + dy, t.z + dz
 end
 
 function layout:endDrag(controller)
@@ -529,17 +529,17 @@ end
 
 function layout:beginScale(controller, otherController, entity)
   self:setActiveActions()
-	local controller = self.controllers[controller]
+  local controller = self.controllers[controller]
 
   controller.scale.active = true
   controller.activeEntity = entity
   controller.scale.counter = 0
   controller.scale.lastDistance = (controller.currentPosition - otherController.currentPosition):length()
-	self.activeColor = self.colors.blue
+  self.activeColor = self.colors.blue
 end
 
 function layout:updateScale(controller)
-	local otherController = self:getOtherController(controller)
+  local otherController = self:getOtherController(controller)
   local currentDistance = controller.currentPosition:distance(otherController.currentPosition)
   local distanceRatio = (currentDistance / controller.scale.lastDistance)
   controller.scale.counter = controller.scale.counter + math.abs(currentDistance - controller.scale.lastDistance)
@@ -560,7 +560,7 @@ function layout:updateEntityScale(entity, scaleMultiplier)
 end
 
 function layout:endScale(controller)
-	local controller = self.controllers[controller]
+  local controller = self.controllers[controller]
   local otherController = self:getOtherController(controller)
 
   if otherController then
@@ -573,16 +573,16 @@ function layout:endScale(controller)
   end
 
   controller.scale.active = false
-	self:resetDefaults()
+  self:resetDefaults()
 end
 
 function layout:beginRotate(controller, entity)
   self:setActiveActions()
-	local controller = self.controllers[controller]
+  local controller = self.controllers[controller]
 
   controller.activeEntity = entity
   controller.rotate.active = true
-	self.activeColor = self.colors.red
+  self.activeColor = self.colors.red
 end
 
 local tmpquat = quat()
@@ -609,11 +609,11 @@ end
 
 function layout:updateEntityRotation(entity, rotation)
   local t = entity
-	local ogRotation = quat():angleAxis(t.angle, t.ax, t.ay, t.az)
-	t.angle, t.ax, t.ay, t.az = (rotation * ogRotation):getAngleAxis()
+  local ogRotation = quat():angleAxis(t.angle, t.ax, t.ay, t.az)
+  t.angle, t.ax, t.ay, t.az = (rotation * ogRotation):getAngleAxis()
   local axis = vector(t.ax, t.ay, t.az)
   axis:normalize()
-	t.ax, t.ay, t.az = axis:unpack()
+  t.ax, t.ay, t.az = axis:unpack()
 end
 
 function layout:endRotate(controller)
@@ -671,7 +671,7 @@ end
 function layout:newEntity(typeId, x, y, z)
   local entity = {}
   entity.locked = false
-	entity.typeId = typeId
+  entity.typeId = typeId
   local t = self.entityTypes[typeId]
   entity.model = t.model
   entity.scale = t.baseScale
@@ -686,14 +686,14 @@ function layout:newEntity(typeId, x, y, z)
 end
 
 function layout:removeEntity(entity)
-	for i = 1, #self.entities do
-		if self.entities[i] == entity then
-			table.remove(self.entities, i)
-			break
-		end
-	end
+  for i = 1, #self.entities do
+    if self.entities[i] == entity then
+      table.remove(self.entities, i)
+      break
+    end
+  end
 
-	self.entities[entity] = nil
+  self.entities[entity] = nil
 end
 
 function layout:addToEntitiesList(entity)
@@ -844,7 +844,7 @@ end
 
 function layout:save()
   local saveData = {}
-	self.filename = self.filename or nextFilename('untitled')
+  self.filename = self.filename or nextFilename('untitled')
   local path = 'levels/'..self.filename..'.json'
   saveData.entities = {}
 
@@ -855,7 +855,7 @@ function layout:save()
     }
   end
   print(self.filename, path)
-	lovr.filesystem.createDirectory('levels')
+  lovr.filesystem.createDirectory('levels')
   lovr.filesystem.write(path, json.encode(saveData))
 end
 
@@ -869,20 +869,20 @@ function layout:load(filename)
   local path = lovr.filesystem.isFile('levels/'..filename..'.json') and 'levels/'..filename..'.json' or 'default.json'
   self.data = json.decode(lovr.filesystem.read(path))
 
-	if self.data.entities then
+  if self.data.entities then
     for _, entity in ipairs(self.data.entities) do
-			local entity = self:loadNewEntity(entity.entityType, entity.transform)
-			self.entities[entity] = entity
-			table.insert(self.entities, entity)
-		end
-	end
+      local entity = self:loadNewEntity(entity.entityType, entity.transform)
+      self.entities[entity] = entity
+      table.insert(self.entities, entity)
+    end
+  end
 end
 
 
 function layout:loadNewEntity(typeId, transform)
   local entity = {}
   entity.locked = false
-	entity.typeId = typeId
+  entity.typeId = typeId
   entity.model = self.entityTypes[typeId].model
   entity.scale = scale
   entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = unpack(transform)
