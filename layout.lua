@@ -5,6 +5,8 @@ local json = require 'json'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
+local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
+
 local function angle(x1, y1, x2, y2)
   return math.atan2(y2 - y1, x2 - x1)
 end
@@ -19,12 +21,12 @@ local layout = {}
 function layout:init()
 	self.isDirty = false
 	self.lastChange = lovr.timer.getTime()
-  self.tools = {}
+  self.actions = {}
   self.axisLock = { x = false, y = false, z = false }
 
-  self.toolMaterial = lovr.graphics.newMaterial()
+  self.actionMaterial = lovr.graphics.newMaterial()
 
-  self:setDefaultTools()
+  self:setDefaultActions()
   self:loadEntityTypes()
   self:refreshControllers()
 
@@ -39,8 +41,8 @@ function layout:init()
 
   self.active = true
 
-  local toolTextureName = self.active and 'play' or 'stop'
-	self:setToolTexture(toolTextureName)
+  local actionTextureName = self.active and 'play' or 'stop'
+	self:setActionTexture(actionTextureName)
 
 	self.entities = {}
 
@@ -84,11 +86,11 @@ function layout:update(dt)
     end
 
 		if hasActive then
-			self:setActiveTools()
+			self:setActiveActions()
 		elseif hasHover then
-			self:setHoverTools()
+			self:setHoverActions()
 		else
-			self:setDefaultTools()
+			self:setDefaultActions()
 		end
 	else
 		self.satchel.active = false
@@ -115,11 +117,11 @@ function layout:draw()
 	end
 
   self:drawEntities()
-	self:drawToolUI()
+	self:drawActionUI()
 end
 
-function layout:drawToolUI()
-  local toolTexture = self.toolTexture
+function layout:drawActionUI()
+  local actionTexture = self.actionTexture
 
 	lovr.graphics.setColor(self.colors.default)
   for _, controller in ipairs(self.controllers) do
@@ -128,15 +130,15 @@ function layout:drawToolUI()
 		lovr.graphics.push()
 		lovr.graphics.translate(x, y, z)
 		lovr.graphics.rotate(angle, ax, ay, az)
-    lovr.graphics.plane(self.toolMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
+    lovr.graphics.plane(self.actionMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
 		lovr.graphics.pop()
   end
 end
 
-function layout:setToolTexture(name)
-  self.toolTextures = self.toolTextures or {}
-  self.toolTextures[name] = self.toolTextures[name] or lovr.graphics.newTexture('resources/' .. name .. '.png')
-  self.toolMaterial:setTexture(self.toolTextures[name])
+function layout:setActionTexture(name)
+  self.actionTextures = self.actionTextures or {}
+  self.actionTextures[name] = self.actionTextures[name] or lovr.graphics.newTexture('resources/' .. name .. '.png')
+  self.actionMaterial:setTexture(self.actionTextures[name])
 end
 
 function layout:controllerpressed(controller, button)
@@ -146,11 +148,11 @@ function layout:controllerpressed(controller, button)
     local threshold = 0
     while angle < 0 do angle = angle + 2 * math.pi end
     if distance >= threshold then
-      if angle < math.pi / 4 then self.tools.right()
-      elseif angle < 3 * math.pi / 4 then self.tools.up()
-      elseif angle < 5 * math.pi / 4 then self.tools.left()
-      elseif angle < 7 * math.pi / 4 then self.tools.down()
-      else self.tools.right() end
+      if angle < math.pi / 4 then self.actions.right()
+      elseif angle < 3 * math.pi / 4 then self.actions.up()
+      elseif angle < 5 * math.pi / 4 then self.actions.left()
+      elseif angle < 7 * math.pi / 4 then self.actions.down()
+      else self.actions.right() end
     end
   end
 
@@ -267,16 +269,16 @@ function layout:updateControllers()
   end
 end
 
-function layout:setActiveTools()
-  self.tools.up = function() self.axisLock.y = not self.axisLock.y end
-  self.tools.left = function() self.axisLock.x = not self.axisLock.x end
-  self.tools.right = function() self.axisLock.z = not self.axisLock.z end
-  self.tools.down = function() end
+function layout:setActiveActions()
+  self.actions.up = function() self.axisLock.y = not self.axisLock.y end
+  self.actions.left = function() self.axisLock.x = not self.axisLock.x end
+  self.actions.right = function() self.axisLock.z = not self.axisLock.z end
+  self.actions.down = function() end
 
-	self:setToolTexture('active')
+	self:setActionTexture('active')
 end
 
-function layout:setHoverTools()
+function layout:setHoverActions()
 	local function deleteHovered()
 		for i = #self.entities, 1, -1 do
 			local entity = self.entities[i]
@@ -309,22 +311,22 @@ function layout:setHoverTools()
     end
 	end
 
-  local function setHoverToolsTexture()
+  local function setHoverActionsTexture()
     for i = #self.entities, 1, -1 do
       local entity = self.entities[i]
       if self:isHovered(entity) then
-        local toolTextureName = entity.locked and 'hoverLocked' or 'hover'
-				self:setToolTexture(toolTextureName)
+        local actionTextureName = entity.locked and 'hoverLocked' or 'hover'
+				self:setActionTexture(actionTextureName)
       end
     end
   end
 
-  self.tools.up = function() copyHovered() end
-  self.tools.left = function() print('left') end
-  self.tools.right = function() lockHovered() end
-  self.tools.down = function() deleteHovered() end
+  self.actions.up = function() copyHovered() end
+  self.actions.left = function() print('left') end
+  self.actions.right = function() lockHovered() end
+  self.actions.down = function() deleteHovered() end
 
-  setHoverToolsTexture()
+  setHoverActionsTexture()
 end
 
 function layout:newEntityCopy(entity)
@@ -336,11 +338,11 @@ function layout:newEntityCopy(entity)
   return newEntity
 end
 
-function layout:setDefaultTools()
+function layout:setDefaultActions()
 	local function toggleActive()
 		self.active = not self.active
-		local toolTextureName = self.active and 'play' or 'stop'
-		self:setToolTexture(toolTextureName)
+		local actionTextureName = self.active and 'play' or 'stop'
+		self:setActionTexture(actionTextureName)
 	end
 
   local function file()
@@ -350,13 +352,13 @@ function layout:setDefaultTools()
   local function undo() end
   local function redo() end
 
-  self.tools.up = function() toggleActive() end
-  self.tools.left = function() undo() end
-  self.tools.right = function() redo() end
-  self.tools.down = function() file() end
+  self.actions.up = function() toggleActive() end
+  self.actions.left = function() undo() end
+  self.actions.right = function() redo() end
+  self.actions.down = function() file() end
 
-	local toolTextureName = self.active and 'play' or 'stop'
-	self:setToolTexture(toolTextureName)
+	local actionTextureName = self.active and 'play' or 'stop'
+	self:setActionTexture(actionTextureName)
 end
 
 function layout:drawSatchel()
@@ -474,7 +476,7 @@ end
 
 function layout:beginDrag(controller, entity)
   self.axisLock = { x = false, y = false, z = false }
-  self:setActiveTools()
+  self:setActiveActions()
   local controller = self.controllers[controller]
   local entityPosition = vector(entity.x, entity.y, entity.z)
   controller.activeEntity = entity
@@ -526,7 +528,7 @@ function layout:endDrag(controller)
 end
 
 function layout:beginScale(controller, otherController, entity)
-  self:setActiveTools()
+  self:setActiveActions()
 	local controller = self.controllers[controller]
 
   controller.scale.active = true
@@ -575,7 +577,7 @@ function layout:endScale(controller)
 end
 
 function layout:beginRotate(controller, entity)
-  self:setActiveTools()
+  self:setActiveActions()
 	local controller = self.controllers[controller]
 
   controller.activeEntity = entity
@@ -622,7 +624,7 @@ end
 function layout:resetDefaults()
   self.activeColor = self.colors.default
   self.axisLock = {}
-  self:setDefaultTools()
+  self:setDefaultActions()
 end
 
 function layout:getOtherController(controller)
