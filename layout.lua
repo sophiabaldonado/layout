@@ -401,10 +401,10 @@ function layout:drawCursors()
 
 		if (self.activeColor ~= self.colors.default) then
 			lovr.graphics.setColor(self.activeColor)
-			lovr.graphics.sphere(x, y, z, .005, angle, ax, ay, az)
+			lovr.graphics.sphere(x, y, z, .005)
 			lovr.graphics.setColor(self.colors.default)
 		else
-			lovr.graphics.cube('fill', x, y, z, .01, angle, ax, ay, az)
+			lovr.graphics.cube('fill', x, y, z, .01)
 		end
   end
 end
