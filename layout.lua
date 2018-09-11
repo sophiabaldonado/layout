@@ -40,9 +40,7 @@ function layout:init()
   }
   self.activeColor = self.colors.default
 
-  self.active = true
-
-  local actionTextureName = self.active and 'play' or 'stop'
+  local actionTextureName = 'play'
   self:setActionTexture(actionTextureName)
 
   self.entities = {}
@@ -61,7 +59,7 @@ function layout:init()
 
   self.tools = {}
 
-  for _, t in ipairs({ 'drag' }) do
+  for _, t in ipairs({ 'grab' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
   end
 
@@ -71,54 +69,46 @@ end
 function layout:update(dt)
   self:checkSave()
 
-  if self.active then
-    local hasHover, hasActive = false, false
+  local hasHover, hasActive = false, false
+  for _, entity in pairs(self.entities) do
+    entity.wasHovered = entity.wasHovered or {}
+    entity.isHovered = entity.isHovered or {}
+    for _, controller in ipairs(self.controllers) do
+      local c = self.controllers[controller]
 
-    for _, entity in pairs(self.entities) do
-      entity.wasHovered = entity.wasHovered or {}
-      entity.isHovered = entity.isHovered or {}
-      for _, controller in ipairs(self.controllers) do
-        local c = self.controllers[controller]
+      entity.wasHovered[controller] = entity.isHovered[controller]
+      entity.isHovered[controller] = self:isHoveredByController(entity, controller)
+      hasHover = hasHover or (entity.isHovered[controller])
 
-        entity.wasHovered[controller] = entity.isHovered[controller]
-        entity.isHovered[controller] = self:isHoveredByController(entity, controller)
-        hasHover = hasHover or (entity.isHovered[controller])
-
-        -- Bzz when controller enters entity
-        if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
-          if not c.scale.active and not c.rotate.active then
-            self.controllers[controller].object:vibrate(.002)
-          end
+      -- Bzz when controller enters entity
+      if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
+        if not c.scale.active and not c.rotate.active then
+          self.controllers[controller].object:vibrate(.002)
         end
-
-        hasActive = hasActive or (c.scale.active or c.rotate.active)
       end
-    end
 
-    if hasActive then
-      self:setActiveActions()
-    elseif hasHover then
-      self:setHoverActions()
-    else
-      self:setDefaultActions()
+      hasActive = hasActive or (c.scale.active or c.rotate.active)
     end
+  end
+
+  if hasActive then
+    self:setActiveActions()
+  elseif hasHover then
+    self:setHoverActions()
   else
-    self.satchel.active = false
-    self.satchel.following = nil
+    self:setDefaultActions()
   end
 
   self:eachTool('update', dt)
 end
 
 function layout:draw()
+  lovr.graphics.setBackgroundColor(.2, .2, .2)
   self:updateControllers()
+  self:drawCursors()
 
-  if self.active then
-    self:drawCursors()
-
-    if self.satchel.active then
-      self:drawSatchel()
-    end
+  if self.satchel.active then
+    self:drawSatchel()
   end
 
   for i, controller in ipairs(self.controllers) do
@@ -169,27 +159,31 @@ function layout:controllerpressed(controller, button)
     end
   end
 
-  if self.active then
-    local entity = self:getClosestEntity(controller)
-    local otherController = self:getOtherController(self.controllers[controller])
+  local entity = self:getClosestEntity(controller)
+  local otherController = self:getOtherController(self.controllers[controller])
 
-    if button == 'menu' or button == 'b' or button == 'y' then
+  if button == 'menu' or button == 'b' or button == 'y' then
 
-      -- TODO clear tool
-      self.controllers[controller].menuPressed = true
-      if otherController and otherController.menuPressed then
-        self:clearEntities()
-      end
-
-      -- TODO satchel tool
-      if not self.satchel.active then
-        self.satchel.active = true
-        self.satchel.following = controller
-      else
-        self.satchel.active = false
-        self.satchel.following = nil
-      end
+    -- TODO clear tool
+    self.controllers[controller].menuPressed = true
+    if otherController and otherController.menuPressed then
+      self:clearEntities()
     end
+
+    -- TODO satchel tool
+    if not self.satchel.active then
+      self.satchel.active = true
+      self.satchel.following = controller
+    else
+      self.satchel.active = false
+      self.satchel.following = nil
+    end
+  end
+
+  local hover, x, y, z = self:getSatchelHover(controller)
+  if button == 'trigger' and hover then
+    local entity = self:newEntity(hover, x, y, z)
+    self:addToEntitiesList(entity)
   end
 
   self:eachTool('controllerpressed', controller, button)
@@ -203,12 +197,6 @@ function layout:controllerreleased(controller, button)
       self:positionSatchel()
       self.satchel.following = nil
     end
-  end
-
-  if button == 'trigger' then
-    self:endScale(controller)
-  elseif button == 'grip' then
-    self:endRotate(controller)
   end
 
   self:eachTool('controllerreleased', controller, button)
@@ -233,11 +221,6 @@ function layout:refreshControllers()
       currentPosition = vector(),
       lastPosition = vector(),
       activeEntity = nil,
-      scale = {
-        active = false,
-        lastDistance = 0,
-        counter = 0
-      },
       rotate = {
         active = false,
         original = quat(),
@@ -328,26 +311,17 @@ function layout:newEntityCopy(entity)
 end
 
 function layout:setDefaultActions()
-  local function toggleActive()
-    self.active = not self.active
-    local actionTextureName = self.active and 'play' or 'stop'
-    self:setActionTexture(actionTextureName)
-  end
-
   local function file()
-    self:saveAsCopy()
+    --self:saveAsCopy()
   end
 
   local function undo() end
   local function redo() end
 
-  self.actions.up = function() toggleActive() end
+  self.actions.up = function() end
   self.actions.left = function() undo() end
   self.actions.right = function() redo() end
   self.actions.down = function() file() end
-
-  local actionTextureName = self.active and 'play' or 'stop'
-  self:setActionTexture(actionTextureName)
 end
 
 function layout:drawSatchel()
@@ -411,7 +385,7 @@ function layout:drawEntities()
     entity.model:draw(entity.x, entity.y, entity.z, entity.scale)
     lovr.graphics.pop()
 
-    if self.active then self:drawEntityUI(entity) end
+    self:drawEntityUI(entity)
   end
 end
 
@@ -461,50 +435,6 @@ function layout:drawEntityUI(entity)
     end
   end
   lovr.graphics.setColor(self.colors.default)
-end
-
-function layout:beginScale(controller, otherController, entity)
-  self:setActiveActions()
-  local controller = self.controllers[controller]
-
-  controller.scale.active = true
-  controller.activeEntity = entity
-  controller.scale.counter = 0
-  controller.scale.lastDistance = (controller.currentPosition - otherController.currentPosition):length()
-  self.activeColor = self.colors.blue
-end
-
-function layout:updateScale(controller)
-  local otherController = self:getOtherController(controller)
-  local currentDistance = controller.currentPosition:distance(otherController.currentPosition)
-  local distanceRatio = (currentDistance / controller.scale.lastDistance)
-  controller.scale.counter = controller.scale.counter + math.abs(currentDistance - controller.scale.lastDistance)
-  if controller.scale.counter >= .1 then
-    controller.object:vibrate(.001)
-    otherController.object:vibrate(.001)
-    controller.scale.counter = 0
-  end
-  controller.scale.lastDistance = currentDistance
-
-  self:updateEntityScale(controller.activeEntity, distanceRatio)
-  self:dirty()
-end
-
-function layout:updateEntityScale(entity, scaleMultiplier)
-  local t = entity
-  t.scale = t.scale * scaleMultiplier
-end
-
-function layout:endScale(controller)
-  local controller = self.controllers[controller]
-  local otherController = self:getOtherController(controller)
-
-  if otherController then
-    otherController.scale.active = false
-  end
-
-  controller.scale.active = false
-  self:resetDefaults()
 end
 
 function layout:beginRotate(controller, entity)
@@ -643,7 +573,7 @@ function layout:loadEntityTypes()
   self.satchelItemSize = .09
 
   for i, file in ipairs(files) do
-    if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') or file:match('%.dae$') then
+    if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') then
       local id = file:gsub('%.%a+$', '')
       local modelPath = path .. '/' .. file
       local model = lovr.graphics.newModel(modelPath)
@@ -756,7 +686,7 @@ end
 
 function layout:checkSave()
   if self.isDirty and lovr.timer.getTime() - self.lastChange > 3 then
-    self:save()
+    --self:save()
     self.isDirty = false
   end
 end
@@ -773,6 +703,7 @@ function layout:nextFilename(filename)
   return versionFilename(filename, i) -- TODO: make this not return 'mujugarden-02-01'
 end
 
+--[[
 function layout:save()
   local saveData = {}
   self.filename = self.filename or nextFilename('untitled')
@@ -789,11 +720,14 @@ function layout:save()
   lovr.filesystem.createDirectory('levels')
   lovr.filesystem.write(path, json.encode(saveData))
 end
+]]
 
+--[[
 function layout:saveAsCopy()
   self.filename = self.filename and self:nextFilename(self.filename) or nil
   self:save()
 end
+]]
 
 function layout:load(filename)
   self.filename = filename
