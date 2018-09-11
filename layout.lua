@@ -29,7 +29,8 @@ function layout:init()
   self.mainMaterial:setTexture(texture)
 
   self:setDefaultTools()
-  self:loadEntityTypes()
+  -- self:loadLocalEntityTypes()
+  self:loadPolyEntityTypes()
   self:refreshControllers()
 
 	self.colors = {
@@ -743,7 +744,7 @@ function layout:clearEntities()
   self.entities = {}
 end
 
-function layout:loadEntityTypes()
+function layout:loadLocalEntityTypes()
   local path = 'models'
   local files = lovr.filesystem.getDirectoryItems(path)
   self.entityTypes = {}
@@ -767,6 +768,28 @@ function layout:loadEntityTypes()
 
       table.insert(self.entityTypes, id)
     end
+  end
+end
+
+function layout:loadPolyEntityTypes()
+	local assets = poly:getModels(5)
+  self.entityTypes = {}
+  self.satchelItemSize = .09
+
+  for k, v in ipairs(assets) do
+    local id = v.name
+    local model = v.model
+
+    local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+    local width, height, depth = maxx - minx, maxy - miny, maxz - minz
+    local baseScale = self.satchelItemSize / math.max(width, height, depth)
+
+    self.entityTypes[id] = {
+      model = model,
+      baseScale = baseScale
+    }
+
+    table.insert(self.entityTypes, id)
   end
 end
 
@@ -916,7 +939,6 @@ function layout:load(filename)
 		end
 	end
 end
-
 
 function layout:loadNewEntity(typeId, transform)
   local entity = {}

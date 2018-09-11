@@ -11,11 +11,11 @@ function poly:init()
 	self.models = {}
 	self.assets = {}
 
-	local list = json.decode(http.send('https://poly.googleapis.com/v1/assets?category=food&orderBy=BEST&pageSize=5&key=APIKEY').body)
+	-- local list = json.decode(http.send('https://poly.googleapis.com/v1/assets?category=food&orderBy=BEST&pageSize=20&key='..bla).body)
 
-	self:makeThumbnails(list)
-	self:makeFormats(list)
-	polyModel = self:getModel(self.assets[1].name, self.assets[1].format)
+	-- self:makeThumbnails(list)
+	-- self:makeFormats(list)
+	-- polyModel = self:getModel(self.assets[1].name, self.assets[1].format)
 end
 
 function poly:makeFormats(list)
@@ -44,20 +44,35 @@ function poly:makeFormats(list)
 			self.assets[i].format = format
 			self.formats[asset.name] = format
 		end
+		self.assets[asset.name] = self.assets[i]
 	end
+end
+
+function poly:getModels(number)
+	local list = json.decode(http.send('https://poly.googleapis.com/v1/assets?category=food&orderBy=BEST&pageSize='..number..'&key='..bla).body)
+
+	self:makeFormats(list)
+	for i, asset in ipairs(self.assets) do
+		self:getModel(asset.name, asset.format)
+	end
+	print(#self.assets)
+	return self.assets
 end
 
 function poly:getModel(name, format)
 	if self.models[format] then return self.models[format] end
-	local basePath = name..'/'
-
+	local material
+	local basePath = 'poly/'..name..'/'
 	fs.createDirectory(basePath)
 	fs.write(basePath..format.root.relativePath, http.send(format.root.url).body)
 	for i, resource in ipairs(format.resources) do
 		fs.write(basePath..resource.relativePath, http.send(resource.url).body)
+		-- material = lovr.graphics.newMaterial(basePath..resource.relativePath)
 	end
 	local model = lovr.graphics.newModel(basePath..format.root.relativePath)
 	self.models[format] = model
+	self.assets[name].model = model
+	-- self.assets[name].material = material
 	return model
 end
 
@@ -73,12 +88,17 @@ function poly:makeThumbnails(list)
 end
 
 function poly:draw()
-	polyModel:draw(0, 1, -2, .25)
+	local modelSpawn = lovr.math.newTransform(0, 1, -2, .25)
+	-- polyModel:draw(modelSpawn)
 
+	--poly:drawThumbnails()
+end
+
+function poly:drawThumbnails()
 	local j = 0
 	for k, v in pairs(self.thumbnails) do
-			lovr.graphics.plane(v.material, -3 + (1 * j), 2, -2)
-			j = j + 1
+			lovr.graphics.plane(v.material, -3 + (1 * j), 2, -2, .3, .3)
+			j = j + .5
 	end
 end
 
