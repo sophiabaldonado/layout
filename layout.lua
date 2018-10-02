@@ -105,13 +105,6 @@ function layout:draw()
     self:drawSatchel()
   end
 
-  for i, controller in ipairs(self.controllers) do
-    local c = self.controllers[controller]
-    local x, y, z = controller:getPosition()
-    lovr.graphics.setColor(self.colors.default)
-    c.model:draw(x, y, z, 1, controller:getOrientation())
-  end
-
   self:eachTool('draw')
   self:drawEntities()
   self:drawActionUI()
@@ -209,8 +202,7 @@ function layout:refreshControllers()
   for i, controller in ipairs(lovr.headset.getControllers()) do
     self.controllers[controller] = {
       index = i,
-      object = controller,
-      model = lovr.graphics.newModel('resources/controller.obj', 'resources/controller.png'),
+      object = controller
     }
     table.insert(self.controllers, controller)
   end
