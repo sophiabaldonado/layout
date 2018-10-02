@@ -1,7 +1,7 @@
 local maf = require 'maf'
 local vector = maf.vector
 local quat = maf.quat
-local json = require 'json'
+local json = require 'cjson'
 local transform = lovr.math.newTransform()
 local rotateTransform = lovr.math.newTransform()
 
@@ -59,7 +59,7 @@ function layout:init()
 
   self.tools = {}
 
-  for _, t in ipairs({ 'grab' }) do
+  for _, t in ipairs({ 'grab', 'rotate' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
   end
 
@@ -437,57 +437,6 @@ function layout:drawEntityUI(entity)
   lovr.graphics.setColor(self.colors.default)
 end
 
-function layout:beginRotate(controller, entity)
-  self:setActiveActions()
-  local controller = self.controllers[controller]
-
-  controller.activeEntity = entity
-  controller.rotate.active = true
-  self.activeColor = self.colors.red
-end
-
-local tmpquat = quat()
-function layout:updateRotate(controller)
-  local t = controller.activeEntity
-
-  local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
-  local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
-  local entityPosition = vector(t.x + cx, t.y + cy, t.z + cz)
-
-  local d1 = (controller.currentPosition - entityPosition):normalize()
-  local d2 = (controller.lastPosition - entityPosition):normalize()
-  local rotation = quat():between(d2, d1)
-
-  controller.rotate.counter = controller.rotate.counter + (controller.currentPosition - controller.lastPosition):length()
-  if controller.rotate.counter >= .1 then
-    controller.object:vibrate(.001)
-    controller.rotate.counter = 0
-  end
-
-  self:updateEntityRotation(controller.activeEntity, rotation)
-  self:dirty()
-end
-
-function layout:updateEntityRotation(entity, rotation)
-  local t = entity
-  local ogRotation = quat():angleAxis(t.angle, t.ax, t.ay, t.az)
-  t.angle, t.ax, t.ay, t.az = (rotation * ogRotation):getAngleAxis()
-  local axis = vector(t.ax, t.ay, t.az)
-  axis:normalize()
-  t.ax, t.ay, t.az = axis:unpack()
-end
-
-function layout:endRotate(controller)
-  self.controllers[controller].rotate.active = false
-  self:resetDefaults()
-end
-
-function layout:resetDefaults()
-  self.activeColor = self.colors.default
-  self.axisLock = {}
-  self:setDefaultActions()
-end
-
 function layout:getOtherController(controller)
   return self.controllers[self.controllers[3 - controller.index]]
 end
@@ -572,6 +521,7 @@ function layout:loadEntityTypes()
   self.entityTypes = {}
   self.satchelItemSize = .09
 
+  do return end
   for i, file in ipairs(files) do
     if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') then
       local id = file:gsub('%.%a+$', '')
