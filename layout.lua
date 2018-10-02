@@ -1,9 +1,7 @@
 local maf = require 'maf'
 local vector = maf.vector
-local quat = maf.quat
 local json = require 'cjson'
 local transform = lovr.math.newTransform()
-local rotateTransform = lovr.math.newTransform()
 
 local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
 local dot = base:match('%.') and '.' or '/'
@@ -86,8 +84,6 @@ function layout:update(dt)
           self.controllers[controller].object:vibrate(.002)
         end
       end
-
-      hasActive = hasActive or (c.scale.active or c.rotate.active)
     end
   end
 
@@ -103,8 +99,6 @@ function layout:update(dt)
 end
 
 function layout:draw()
-  lovr.graphics.setBackgroundColor(.2, .2, .2)
-  self:updateControllers()
   self:drawCursors()
 
   if self.satchel.active then
@@ -159,7 +153,6 @@ function layout:controllerpressed(controller, button)
     end
   end
 
-  local entity = self:getClosestEntity(controller)
   local otherController = self:getOtherController(self.controllers[controller])
 
   if button == 'menu' or button == 'b' or button == 'y' then
@@ -218,26 +211,8 @@ function layout:refreshControllers()
       index = i,
       object = controller,
       model = lovr.graphics.newModel('resources/controller.obj', 'resources/controller.png'),
-      currentPosition = vector(),
-      lastPosition = vector(),
-      activeEntity = nil,
-      rotate = {
-        active = false,
-        original = quat(),
-        originalPosition = vector(),
-        counter = 0
-      }
     }
     table.insert(self.controllers, controller)
-  end
-end
-
-function layout:updateControllers()
-  for _, controller in ipairs(self.controllers) do
-    local controller = self.controllers[controller]
-    controller.currentPosition:set(self:cursorPos(controller.object))
-
-    controller.lastPosition:set(controller.currentPosition)
   end
 end
 
@@ -446,7 +421,7 @@ function layout:cursorPos(controller)
   local controller = self.controllers[controller]
   local x, y, z = controller.object:getPosition()
   local angle, ax, ay, az = controller.object:getOrientation()
-  local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
+  local offset = vector(lovr.math.orientationToDirection(angle, ax, ay, az)):scale(.075)
   newPos:set(x, y, z):add(offset)
   return newPos
 end
@@ -456,7 +431,7 @@ function layout:drawTokens()
   for _, controller in ipairs(self.controllers) do
     local x, y, z = controller:getPosition()
     local angle, ax, ay, az = controller:getOrientation()
-    -- local offset = vector(self:orientationToVector(angle, ax, ay, az)):scale(.075)
+    -- local offset = vector(self:lovr.math.orientationToDirection(angle, ax, ay, az)):scale(.075)
     local offset = vector(.2, 0, 0)
     tokenPos:set(x, y, z):add(offset)
     x, y, z = tokenPos:unpack()
@@ -465,17 +440,6 @@ function layout:drawTokens()
       lovr.graphics.plane(token.material, x, y, z, .08, .08, angle, ax, ay, az)
     end
   end
-end
-
-function layout:orientationToVector(angle, ax, ay, az)
-  local x, y, z = 0, 0, -1
-  local dot = ax * x + ay * y + az * z
-  local cx, cy, cz = ay * z - az * y, az * x - ax * z, ax * y - ay * x
-  local sin, cos = math.sin(angle), math.cos(angle)
-  return
-    cos * x + sin * cx + (1 - cos) * dot * ax,
-    cos * y + sin * cy + (1 - cos) * dot * ay,
-    cos * z + sin * cz + (1 - cos) * dot * az
 end
 
 function layout:newEntity(typeId, x, y, z)
