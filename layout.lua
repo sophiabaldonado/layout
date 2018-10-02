@@ -41,7 +41,7 @@ function layout:init()
   self.entities = {}
   self.tools = {}
 
-  for _, t in ipairs({ 'grab', 'rotate', 'satchel' }) do
+  for _, t in ipairs({ 'grab', 'rotate', 'satchel', 'clear' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
   end
 
@@ -86,18 +86,6 @@ function layout:controllerpressed(controller, button)
       elseif angle < 5 * math.pi / 4 then self.actions.left()
       elseif angle < 7 * math.pi / 4 then self.actions.down()
       else self.actions.right() end
-    end
-  end
-
-  local otherController = self:getOtherController(controller)
-
-  if button == 'menu' then
-
-    -- clear tool
-    if otherController and otherController:isDown('menu') then
-      for k in pairs(self.entities) do
-        self.entities[k] = nil
-      end
     end
   end
 
