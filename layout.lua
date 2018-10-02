@@ -458,12 +458,9 @@ function layout:removeEntity(entity)
       break
     end
   end
-
-  self.entities[entity] = nil
 end
 
 function layout:addToEntitiesList(entity)
-  self.entities[entity] = entity
   table.insert(self.entities, entity)
 end
 
@@ -642,24 +639,19 @@ function layout:load(filename)
 
   if self.data.entities then
     for _, entity in ipairs(self.data.entities) do
-      local entity = self:loadNewEntity(entity.entityType, entity.transform)
-      self.entities[entity] = entity
-      table.insert(self.entities, entity)
+      local typeId = entity.entityType
+      local model = self.entityTypes[typeId].model
+      local x, y, z, scale, angle, ax, ay, az = unpack(entity.transform)
+
+      table.insert(self.entities, {
+        locked = false,
+        typeId = typeId,
+        model = model,
+        x = x, y = y, z = z,
+        angle = angle, ax = ax, ay = ay, az = az
+      })
     end
   end
-end
-
-
-function layout:loadNewEntity(typeId, transform)
-  local entity = {}
-  entity.locked = false
-  entity.typeId = typeId
-  entity.model = self.entityTypes[typeId].model
-  entity.scale = scale
-  entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = unpack(transform)
-  entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
-
-  return entity
 end
 
 function layout:eachTool(action, ...)
