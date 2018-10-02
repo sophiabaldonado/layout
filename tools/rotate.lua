@@ -45,7 +45,7 @@ function Rotate:update(dt)
 end
 
 function Rotate:controllerpressed(controller, button)
-  if button == 'trigger' then
+  if button == 'grip' then
     local entity = self.layout:getClosestEntity(controller)
     if entity then
       self.active = true
@@ -58,7 +58,7 @@ function Rotate:controllerpressed(controller, button)
 end
 
 function Rotate:controllerreleased(controller, button)
-  if button == 'trigger' and self.drags[controller] then
+  if self.active and controller == self.controller and button == 'grip' then
     self.active = false
     self.layout:dirty()
   end

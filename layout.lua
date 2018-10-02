@@ -1,7 +1,5 @@
 local maf = require 'maf'
-local vector = maf.vector
 local json = require 'cjson'
-local transform = lovr.math.newTransform()
 
 local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
 local dot = base:match('%.') and '.' or '/'
@@ -19,14 +17,12 @@ local layout = {}
 
 function layout:init()
   self.isDirty = false
-  self.lastChange = lovr.timer.getTime()
+  self.lastChange = nil
   self.actions = {}
   self.axisLock = { x = false, y = false, z = false }
 
-  self.actionMaterial = lovr.graphics.newMaterial()
-
   self:setDefaultActions()
-  self:loadEntityTypes()
+  self:loadModels()
   self:refreshControllers()
 
   self.colors = {
@@ -39,25 +35,13 @@ function layout:init()
   self.activeColor = self.colors.default
 
   local actionTextureName = 'play'
+  self.actionMaterial = lovr.graphics.newMaterial()
   self:setActionTexture(actionTextureName)
 
   self.entities = {}
-
-  self.satchel = {
-    active = false,
-    following = nil,
-    itemSize = .06,
-    transform = lovr.math.newTransform(),
-    yaw = 0
-  }
-
-  self.tokens = {
-    { model = lovr.graphics.newModel('resources/token.obj'), material = lovr.graphics.newMaterial('resources/copy.png') }
-  }
-
   self.tools = {}
 
-  for _, t in ipairs({ 'grab', 'rotate' }) do
+  for _, t in ipairs({ 'grab', 'rotate', 'satchel' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
   end
 
@@ -67,32 +51,17 @@ end
 function layout:update(dt)
   self:checkSave()
 
-  local hasHover, hasActive = false, false
-  for _, entity in pairs(self.entities) do
-    entity.wasHovered = entity.wasHovered or {}
-    entity.isHovered = entity.isHovered or {}
+  -- Calculate hover state
+  for i, entity in ipairs(self.entities) do
+    entity.hovered = false
     for _, controller in ipairs(self.controllers) do
-      local c = self.controllers[controller]
-
-      entity.wasHovered[controller] = entity.isHovered[controller]
-      entity.isHovered[controller] = self:isHoveredByController(entity, controller)
-      hasHover = hasHover or (entity.isHovered[controller])
-
-      -- Bzz when controller enters entity
-      if (not entity.wasHovered[controller] and entity.isHovered[controller]) then
-        if not c.scale.active and not c.rotate.active then
-          self.controllers[controller].object:vibrate(.002)
-        end
+      local hovered = self:isHoveredByController(entity, controller)
+      entity.hovered = entity.hovered or hovered
+      if hovered ~= entity.hoveredBy[controller] then
+        entity.hoveredBy[controller] = hovered
+        if hovered then controller:vibrate(.002) end
       end
     end
-  end
-
-  if hasActive then
-    self:setActiveActions()
-  elseif hasHover then
-    self:setHoverActions()
-  else
-    self:setDefaultActions()
   end
 
   self:eachTool('update', dt)
@@ -100,35 +69,9 @@ end
 
 function layout:draw()
   self:drawCursors()
-
-  if self.satchel.active then
-    self:drawSatchel()
-  end
-
-  self:eachTool('draw')
   self:drawEntities()
   self:drawActionUI()
-end
-
-function layout:drawActionUI()
-  local actionTexture = self.actionTexture
-
-  lovr.graphics.setColor(self.colors.default)
-  for _, controller in ipairs(self.controllers) do
-    local x, y, z = controller:getPosition()
-    local angle, ax, ay, az = controller:getOrientation()
-    lovr.graphics.push()
-    lovr.graphics.translate(x, y, z)
-    lovr.graphics.rotate(angle, ax, ay, az)
-    lovr.graphics.plane(self.actionMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
-    lovr.graphics.pop()
-  end
-end
-
-function layout:setActionTexture(name)
-  self.actionTextures = self.actionTextures or {}
-  self.actionTextures[name] = self.actionTextures[name] or lovr.graphics.newTexture('resources/' .. name .. '.png')
-  self.actionMaterial:setTexture(self.actionTextures[name])
+  self:eachTool('draw')
 end
 
 function layout:controllerpressed(controller, button)
@@ -146,45 +89,22 @@ function layout:controllerpressed(controller, button)
     end
   end
 
-  local otherController = self:getOtherController(self.controllers[controller])
+  local otherController = self:getOtherController(controller)
 
-  if button == 'menu' or button == 'b' or button == 'y' then
+  if button == 'menu' then
 
-    -- TODO clear tool
-    self.controllers[controller].menuPressed = true
-    if otherController and otherController.menuPressed then
-      self:clearEntities()
+    -- clear tool
+    if otherController and otherController:isDown('menu') then
+      for k in pairs(self.entities) do
+        self.entities[k] = nil
+      end
     end
-
-    -- TODO satchel tool
-    if not self.satchel.active then
-      self.satchel.active = true
-      self.satchel.following = controller
-    else
-      self.satchel.active = false
-      self.satchel.following = nil
-    end
-  end
-
-  local hover, x, y, z = self:getSatchelHover(controller)
-  if button == 'trigger' and hover then
-    local entity = self:newEntity(hover, x, y, z)
-    self:addToEntitiesList(entity)
   end
 
   self:eachTool('controllerpressed', controller, button)
 end
 
 function layout:controllerreleased(controller, button)
-  if button == 'menu' or button == 'b' or button == 'y' then
-    self.controllers[controller].menuPressed = false
-
-    if self.satchel.following then
-      self:positionSatchel()
-      self.satchel.following = nil
-    end
-  end
-
   self:eachTool('controllerreleased', controller, button)
 end
 
@@ -193,19 +113,23 @@ function layout:controlleradded(controller)
 end
 
 function layout:controllerremoved(controller)
+  for i, entity in ipairs(self.entities) do
+    entity.hoveredBy[controller] = nil
+    entity.focusedBy[controller] = nil
+  end
+
   self:refreshControllers()
 end
 
 function layout:refreshControllers()
-  self.controllers = {}
-
-  for i, controller in ipairs(lovr.headset.getControllers()) do
-    self.controllers[controller] = {
-      index = i,
-      object = controller
-    }
-    table.insert(self.controllers, controller)
+  self.controllers = lovr.headset.getControllers()
+  for i, controller in ipairs(self.controllers) do
+    self.controllers[controller] = self.controllers[3 - i]
   end
+end
+
+function layout:getOtherController(controller)
+  return self.controllers[controller]
 end
 
 function layout:setActiveActions()
@@ -221,7 +145,7 @@ function layout:setHoverActions()
   local function deleteHovered()
     for i = #self.entities, 1, -1 do
       local entity = self.entities[i]
-      if self:isHovered(entity) and not entity.locked then
+      if entity.hovered and not entity.locked then
         self:removeEntity(entity)
       end
     end
@@ -230,7 +154,7 @@ function layout:setHoverActions()
   local function lockHovered()
     for i = #self.entities, 1, -1 do
       local entity = self.entities[i]
-      if self:isHovered(entity) then
+      if entity.hovered then
         entity.locked = not entity.locked
       end
     end
@@ -239,21 +163,20 @@ function layout:setHoverActions()
   local function copyHovered()
     local entity
     for i = #self.entities, 1, -1 do
-      local controller = self:isHovered(self.entities[i])
+      local controller = next(self.entities[i].hoveredBy)
       if controller then
         entity = self:getClosestEntity(controller)
       end
     end
     if entity then
-      local newEntity = self:newEntityCopy(entity)
-      self:addToEntitiesList(newEntity)
+      self:copyEntity(entity)
     end
   end
 
   local function setHoverActionsTexture()
     for i = #self.entities, 1, -1 do
       local entity = self.entities[i]
-      if self:isHovered(entity) then
+      if entity.hovered then
         local actionTextureName = entity.locked and 'hoverLocked' or 'hover'
         self:setActionTexture(actionTextureName)
       end
@@ -266,15 +189,6 @@ function layout:setHoverActions()
   self.actions.down = function() deleteHovered() end
 
   setHoverActionsTexture()
-end
-
-function layout:newEntityCopy(entity)
-  local newEntity = {}
-  newEntity.model, newEntity.scale, newEntity.typeId, newEntity.locked = entity.model, entity.scale, entity.typeId, false
-  newEntity.x, newEntity.y, newEntity.z = entity.x + .1, entity.y + .1, entity.z + .1
-  newEntity.angle, newEntity.ax, newEntity.ay, newEntity.az = entity.angle, entity.ax, entity.ay, entity.az
-
-  return newEntity
 end
 
 function layout:setDefaultActions()
@@ -291,45 +205,30 @@ function layout:setDefaultActions()
   self.actions.down = function() file() end
 end
 
-function layout:drawSatchel()
-  if self.satchel.following then
-    self:positionSatchel()
+function layout:setActionTexture(name)
+  self.actionTextures = self.actionTextures or {}
+  self.actionTextures[name] = self.actionTextures[name] or lovr.graphics.newTexture('resources/' .. name .. '.png')
+  self.actionMaterial:setTexture(self.actionTextures[name])
+end
+
+function layout:drawActionUI()
+  local actionTexture = self.actionTexture
+
+  lovr.graphics.setColor(self.colors.default)
+  for _, controller in ipairs(self.controllers) do
+    local x, y, z = controller:getPosition()
+    local angle, ax, ay, az = controller:getOrientation()
+    lovr.graphics.push()
+    lovr.graphics.translate(x, y, z)
+    lovr.graphics.rotate(angle, ax, ay, az)
+    lovr.graphics.plane(self.actionMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
+    lovr.graphics.pop()
   end
-
-  local count = #self.entityTypes
-  local spacing = self.satchel.itemSize * 2
-  local perRow = math.ceil(math.sqrt(count))
-  local rows = math.ceil(count / perRow)
-  local y = spacing * (rows - 1) / 2
-
-  lovr.graphics.push()
-  lovr.graphics.transform(self.satchel.transform)
-
-  for i = 1, rows do
-    local x = -spacing * (perRow - 1) / 2
-
-    for j = 1, perRow do
-      local entityType = self.entityTypes[self.entityTypes[(i - 1) * perRow + j]]
-
-      if entityType then
-        local minx, maxx, miny, maxy, minz, maxz = entityType.model:getAABB()
-        local cx, cy, cz = (minx + maxx) / 2 * entityType.baseScale, (miny + maxy) / 2 * entityType.baseScale, (minz + maxz) / 2 * entityType.baseScale
-        entityType.model:draw(x - cx, y - cy, 0 - cz, entityType.baseScale, lovr.timer.getTime() * .2, 0, 1, 0)
-      end
-
-      x = x + spacing
-    end
-
-    y = y - spacing
-  end
-
-  lovr.graphics.pop()
 end
 
 function layout:drawCursors()
   for _, controller in ipairs(self.controllers) do
-    local cursor = self:cursorPos(controller)
-    x, y, z = cursor:unpack()
+    local x, y, z = self:cursorPos(controller)
 
     if (self.activeColor ~= self.colors.default) then
       lovr.graphics.setColor(self.activeColor)
@@ -343,13 +242,14 @@ end
 
 function layout:drawEntities()
   for _, entity in ipairs(self.entities) do
-    local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
+    local model = self.models[entity.kind]
+    local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
     local cx, cy, cz = (minx + maxx) / 2 * entity.scale, (miny + maxy) / 2 * entity.scale, (minz + maxz) / 2 * entity.scale
     lovr.graphics.push()
     lovr.graphics.translate(entity.x + cx, entity.y + cy, entity.z + cz)
     lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
     lovr.graphics.translate(-entity.x - cx, -entity.y - cy, -entity.z - cz)
-    entity.model:draw(entity.x, entity.y, entity.z, entity.scale)
+    model:draw(entity.x, entity.y, entity.z, entity.scale)
     lovr.graphics.pop()
 
     self:drawEntityUI(entity)
@@ -358,11 +258,12 @@ end
 
 function layout:drawEntityUI(entity)
   local r, g, b = unpack(self.activeColor)
-  local a = .392
+  local alpha = .392
   local highA = .784
-  if self:isHovered(entity) then a = highA end
+  if entity.hovered then alpha = highA end
 
-  local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
+  local model = self.models[entity.kind]
+  local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
   lovr.graphics.push()
@@ -370,14 +271,14 @@ function layout:drawEntityUI(entity)
   lovr.graphics.translate(cx, cy, cz)
   lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
   lovr.graphics.translate(-cx, -cy, -cz)
-  if self:isHovered(entity) then
+  if entity.hovered then
     if entity.locked then
       r, g, b = unpack(self.colors.orange)
     end
-    lovr.graphics.setColor(r, g, b, a)
+    lovr.graphics.setColor(r, g, b, alpha)
   else
     r, g, b = unpack(self.colors.default)
-    lovr.graphics.setColor(r, g, b, a)
+    lovr.graphics.setColor(r, g, b, alpha)
   end
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.pop()
@@ -404,51 +305,31 @@ function layout:drawEntityUI(entity)
   lovr.graphics.setColor(self.colors.default)
 end
 
-function layout:getOtherController(controller)
-  return self.controllers[self.controllers[3 - controller.index]]
-end
-
-local newPos = vector()
 function layout:cursorPos(controller)
-  local controller = self.controllers[controller]
-  local x, y, z = controller.object:getPosition()
-  local angle, ax, ay, az = controller.object:getOrientation()
-  local offset = vector(lovr.math.orientationToDirection(angle, ax, ay, az)):scale(.075)
-  newPos:set(x, y, z):add(offset)
-  return newPos
+  local x, y, z = controller:getPosition()
+  local ox, oy, oz = lovr.math.orientationToDirection(controller:getOrientation())
+  return x + ox * scale, y + oy * scale, z + oz * scale
 end
 
-local tokenPos = vector()
-function layout:drawTokens()
-  for _, controller in ipairs(self.controllers) do
-    local x, y, z = controller:getPosition()
-    local angle, ax, ay, az = controller:getOrientation()
-    -- local offset = vector(self:lovr.math.orientationToDirection(angle, ax, ay, az)):scale(.075)
-    local offset = vector(.2, 0, 0)
-    tokenPos:set(x, y, z):add(offset)
-    x, y, z = tokenPos:unpack()
-    for _, token in ipairs(self.tokens) do
-      token.model:draw(x, y, z, .25, angle, ax, ay, az)
-      lovr.graphics.plane(token.material, x, y, z, .08, .08, angle, ax, ay, az)
-    end
-  end
+function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
+  table.insert(self.entities, {
+    locked = false,
+    hovered = false,
+    hoveredBy = {},
+    focused = false,
+    focusedBy = {},
+    kind = kind,
+    x = x, y = y, z = z,
+    scale = scale,
+    angle = angle, ax = ax, ay = ay, az = az
+  })
+
+  return self.entities[#self.entities]
 end
 
-function layout:newEntity(typeId, x, y, z)
-  local entity = {}
-  entity.locked = false
-  entity.typeId = typeId
-  local t = self.entityTypes[typeId]
-  entity.model = t.model
-  entity.scale = t.baseScale
-
-  local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
-  local cx, cy, cz = (minx + maxx) / 2 * t.baseScale, (miny + maxy) / 2 * t.baseScale, (minz + maxz) / 2 * t.baseScale
-  entity.x, entity.y, entity.z = x - cx, y - cy, z - cz
-  entity.angle, entity.ax, entity.ay, entity.az = -self.satchel.yaw + lovr.timer.getTime() * .2, 0, 1, 0
-  entity.transform = lovr.math.newTransform(entity.x, entity.y, entity.z, entity.scale, entity.scale, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
-
-  return entity
+-- Probably just put in copy tool
+function layout:copyEntity(entity)
+  return self:addEntity(entity.kind, entity.x + .1, entity.y + .1, entity.z + .1, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
 end
 
 function layout:removeEntity(entity)
@@ -460,83 +341,22 @@ function layout:removeEntity(entity)
   end
 end
 
-function layout:addToEntitiesList(entity)
-  table.insert(self.entities, entity)
-end
+function layout:loadModels()
+  self.models = {}
 
-function layout:clearEntities()
-  self.entities = {}
-end
-
-function layout:loadEntityTypes()
   local path = 'models'
-  local files = lovr.filesystem.getDirectoryItems(path)
-  self.entityTypes = {}
-  self.satchelItemSize = .09
-
-  do return end
-  for i, file in ipairs(files) do
+  for i, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
     if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') then
+      if i > 5 then return end
       local id = file:gsub('%.%a+$', '')
-      local modelPath = path .. '/' .. file
-      local model = lovr.graphics.newModel(modelPath)
-
-      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-      local width, height, depth = maxx - minx, maxy - miny, maxz - minz
-      local baseScale = self.satchelItemSize / math.max(width, height, depth)
-
-      self.entityTypes[id] = {
-        model = model,
-        baseScale = baseScale
-      }
-
-      table.insert(self.entityTypes, id)
+      self.models[id] = lovr.graphics.newModel(path .. '/' .. file)
+      table.insert(self.models, id)
     end
   end
-end
-
-local tmp1, tmp2 = vector(), vector()
-function layout:getSatchelHover(controller)
-  if not self.satchel.active then return end
-
-  local count = #self.entityTypes
-  local spacing = self.satchel.itemSize * 2
-  local perRow = math.ceil(math.sqrt(count))
-  local rows = math.ceil(count / perRow)
-  local y = spacing * (rows - 1) / 2
-
-  tmp2:set(self:cursorPos(controller))
-
-  for i = 1, rows do
-    local x = -spacing * (perRow - 1) / 2
-
-    for j = 1, perRow do
-      local id = self.entityTypes[(i - 1) * perRow + j]
-      tmp1:set(self.satchel.transform:transformPoint(x, y, 0))
-
-      if tmp1:distance(tmp2) < self.satchel.itemSize * .8 then
-        return id, tmp1:unpack()
-      end
-
-      x = x + spacing
-    end
-
-    y = y - spacing
-  end
-end
-
-function layout:positionSatchel()
-  local x, y, z = self.satchel.following:getPosition()
-  local hx, hy, hz = lovr.headset.getPosition()
-  local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, x, 0, z)
-  self.satchel.transform:origin()
-  self.satchel.transform:translate(x, y, z)
-  self.satchel.transform:rotate(angle, ax, ay, az)
-  self.satchel.yaw = angle
 end
 
 function layout:getClosestEntity(controller)
-  local x, y, z = self.controllers[controller].object:getPosition()
+  local x, y, z = controller:getPosition()
   local minDistance, closestEntity = math.huge, nil
   for _, entity in pairs(self.entities) do
     local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
@@ -548,24 +368,20 @@ function layout:getClosestEntity(controller)
   return closestEntity, math.sqrt(minDistance)
 end
 
+local transform = lovr.math.newTransform()
 function layout:isHoveredByController(entity, controller)
   if not controller then return false end
   local function addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, scale)
     local w, h, d = (maxx - minx) * scale, (maxy - miny) * scale, (maxz - minz) * scale
-    if w <= .005 then
-      minx = minx + .005
-    end
-    if h <= .005 then
-      miny = miny + .005
-    end
-    if d <= .005 then
-      minz = minz + .005
-    end
+    if w <= .005 then minx = minx + .005 end
+    if h <= .005 then miny = miny + .005 end
+    if d <= .005 then minz = minz + .005 end
     return minx, maxx, miny, maxy, minz, maxz
   end
 
   local t = entity
-  local minx, maxx, miny, maxy, minz, maxz = t.model:getAABB()
+  local model = self.models[t.kind]
+  local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   minx, maxx, miny, maxy, minz, maxz = addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, t.scale)
   local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
   minx, maxx, miny, maxy, minz, maxz = t.x + minx * t.scale, t.x + maxx * t.scale, t.y + miny * t.scale, t.y + maxy * t.scale, t.z + minz * t.scale, t.z + maxz * t.scale
@@ -574,21 +390,13 @@ function layout:isHoveredByController(entity, controller)
   transform:translate(cx, cy, cz)
   transform:rotate(-t.angle, t.ax, t.ay, t.az)
   transform:translate(-cx, -cy, -cz)
-  local x, y, z = self:cursorPos(controller):unpack()
+  local x, y, z = self:cursorPos(controller)
   x, y, z = transform:transformPoint(x - t.x, y - t.y, z - t.z)
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
 
-function layout:isHovered(entity)
-  for _, controller in ipairs(self.controllers) do
-    if self:isHoveredByController(entity, controller) then
-      return controller
-    end
-  end
-end
-
 function layout:checkSave()
-  if self.isDirty and lovr.timer.getTime() - self.lastChange > 3 then
+  if self.isDirty and self.lastChange and lovr.timer.getTime() - self.lastChange > 3 then
     --self:save()
     self.isDirty = false
   end
@@ -600,9 +408,9 @@ function layout:dirty()
 end
 
 function layout:nextFilename(filename)
-  local function versionFilename(name, version) return name..'-'..string.format('%02d', version) end
+  local function versionFilename(name, version) return name .. '-' .. string.format('%02d', version) end
   local i = 1
-  while lovr.filesystem.isFile('levels/'..versionFilename(filename, i)..'.json') do i = i + 1 end
+  while lovr.filesystem.isFile('levels/' .. versionFilename(filename, i) .. '.json') do i = i + 1 end
   return versionFilename(filename, i) -- TODO: make this not return 'mujugarden-02-01'
 end
 
@@ -616,7 +424,7 @@ function layout:save()
   for i, entity in ipairs(self.entities) do
     saveData.entities[i] = {
       transform = { entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az },
-      entityType = entity.typeId
+      kind = entity.typeId
     }
   end
   print(self.filename, path)
@@ -639,17 +447,7 @@ function layout:load(filename)
 
   if self.data.entities then
     for _, entity in ipairs(self.data.entities) do
-      local typeId = entity.entityType
-      local model = self.entityTypes[typeId].model
-      local x, y, z, scale, angle, ax, ay, az = unpack(entity.transform)
-
-      table.insert(self.entities, {
-        locked = false,
-        typeId = typeId,
-        model = model,
-        x = x, y = y, z = z,
-        angle = angle, ax = ax, ay = ay, az = az
-      })
+      self:addEntity(entity.kind, unpack(entity.transform))
     end
   end
 end
