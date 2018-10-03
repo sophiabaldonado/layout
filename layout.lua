@@ -1,4 +1,3 @@
-local maf = require 'maf'
 local json = require 'cjson'
 
 local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
@@ -10,32 +9,17 @@ local layout = {}
 -- Callbacks
 ----------------
 function layout:init()
-  self.isDirty = false
-  self.lastChange = nil
-  self.actions = {}
-  self.axisLock = { x = false, y = false, z = false }
-
-  self:setDefaultActions()
   self:loadModels()
   self:refreshControllers()
 
-  self.colors = {
-    default = { 1, 1, 1 },
-    green = { .349, .804, .4667 },
-    red = { .863, .357, .357 },
-    blue = { .223, .459, .890 },
-    orange = { .941, .561, .278 }
-  }
-  self.activeColor = self.colors.default
-
-  local actionTextureName = 'play'
-  self.actionMaterial = lovr.graphics.newMaterial()
-  self:setActionTexture(actionTextureName)
+  self.isDirty = false
+  self.lastChange = nil
 
   self.entities = {}
+  self.focus = {}
   self.tools = {}
 
-  for _, t in ipairs({ 'grab', 'rotate', 'satchel', 'clear' }) do
+  for _, t in ipairs({ 'grab', 'rotate', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
   end
 
@@ -47,13 +31,15 @@ function layout:update(dt)
 
   -- Calculate hover state
   for i, entity in ipairs(self.entities) do
-    entity.hovered = false
-    for _, controller in ipairs(self.controllers) do
-      local hovered = self:isHoveredByController(entity, controller)
-      entity.hovered = entity.hovered or hovered
-      if hovered ~= entity.hoveredBy[controller] then
-        entity.hoveredBy[controller] = hovered
-        if hovered then controller:vibrate(.002) end
+    if not entity.locked then
+      entity.hovered = false
+      for _, controller in ipairs(self.controllers) do
+        local hovered = self:isHoveredByController(entity, controller)
+        entity.hovered = entity.hovered or hovered
+        if hovered ~= entity.hoveredBy[controller] then
+          entity.hoveredBy[controller] = hovered
+          if hovered then controller:vibrate(.002) end
+        end
       end
     end
   end
@@ -64,7 +50,6 @@ end
 function layout:draw()
   self:drawCursors()
   self:drawEntities()
-  self:drawActionUI()
   self:eachTool('draw')
 end
 
@@ -72,20 +57,6 @@ end
 -- Controllers
 ----------------
 function layout:controllerpressed(controller, button)
-  if button == 'touchpad' then
-    local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
-    local angle, distance = math.atan2(touchy, touchx), math.sqrt(touchx * touchx + touchy * touchy)
-    local threshold = 0
-    while angle < 0 do angle = angle + 2 * math.pi end
-    if distance >= threshold then
-      if angle < math.pi / 4 then self.actions.right()
-      elseif angle < 3 * math.pi / 4 then self.actions.up()
-      elseif angle < 5 * math.pi / 4 then self.actions.left()
-      elseif angle < 7 * math.pi / 4 then self.actions.down()
-      else self.actions.right() end
-    end
-  end
-
   self:eachTool('controllerpressed', controller, button)
 end
 
@@ -117,103 +88,21 @@ function layout:getOtherController(controller)
   return self.controllers[controller]
 end
 
-----------------
--- Actions
-----------------
-function layout:setActiveActions()
-  self.actions.up = function() self.axisLock.y = not self.axisLock.y end
-  self.actions.left = function() self.axisLock.x = not self.axisLock.x end
-  self.actions.right = function() self.axisLock.z = not self.axisLock.z end
-  self.actions.down = function() end
-
-  self:setActionTexture('active')
-end
-
-function layout:setHoverActions()
-  local function deleteHovered()
-    for i = #self.entities, 1, -1 do
-      local entity = self.entities[i]
-      if entity.hovered and not entity.locked then
-        self:removeEntity(entity)
-      end
-    end
-  end
-
-  local function lockHovered()
-    for i = #self.entities, 1, -1 do
-      local entity = self.entities[i]
-      if entity.hovered then
-        entity.locked = not entity.locked
-      end
-    end
-  end
-
-  local function copyHovered()
-    local entity
-    for i = #self.entities, 1, -1 do
-      local controller = next(self.entities[i].hoveredBy)
-      if controller then
-        entity = self:getClosestEntity(controller)
-      end
-    end
-    if entity then
-      self:copyEntity(entity)
-    end
-  end
-
-  local function setHoverActionsTexture()
-    for i = #self.entities, 1, -1 do
-      local entity = self.entities[i]
-      if entity.hovered then
-        local actionTextureName = entity.locked and 'hoverLocked' or 'hover'
-        self:setActionTexture(actionTextureName)
-      end
-    end
-  end
-
-  self.actions.up = function() copyHovered() end
-  self.actions.left = function() print('left') end
-  self.actions.right = function() lockHovered() end
-  self.actions.down = function() deleteHovered() end
-
-  setHoverActionsTexture()
-end
-
-function layout:setDefaultActions()
-  self.actions.up = function() end
-  self.actions.left = function() end
-  self.actions.right = function() end
-  self.actions.down = function() end
-end
-
-function layout:setActionTexture(name)
-  self.actionTextures = self.actionTextures or {}
-  self.actionTextures[name] = self.actionTextures[name] or lovr.graphics.newTexture('resources/' .. name .. '.png')
-  self.actionMaterial:setTexture(self.actionTextures[name])
-end
-
-function layout:drawActionUI()
-  local actionTexture = self.actionTexture
-
-  lovr.graphics.setColor(self.colors.default)
-  for _, controller in ipairs(self.controllers) do
-    local x, y, z = controller:getPosition()
-    local angle, ax, ay, az = controller:getOrientation()
-    lovr.graphics.push()
-    lovr.graphics.translate(x, y, z)
-    lovr.graphics.rotate(angle, ax, ay, az)
-    lovr.graphics.plane(self.actionMaterial, 0, .01, .05, .05, .05, -math.pi / 2 + .1, 1, 0, 0)
-    lovr.graphics.pop()
-  end
+function layout:getTouchpadDirection(controller)
+  local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
+  local angle, distance = math.atan2(touchy, touchx), math.sqrt(touchx * touchx + touchy * touchy)
+  angle = math.floor((angle % (2 * math.pi) + (math.pi / 4)) / (math.pi / 2))
+  return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[angle] or 'right'
 end
 
 ----------------
 -- Cursors
 ----------------
 function layout:cursorPos(controller)
+  local offset = .075
   local x, y, z = controller:getPosition()
   local ox, oy, oz = lovr.math.orientationToDirection(controller:getOrientation())
-  return x + ox * scale, y + oy * scale, z + oz * scale
+  return x + ox * offset, y + oy * offset, z + oz * offset
 end
 
 function layout:drawCursors()
@@ -272,8 +161,6 @@ function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
     locked = false,
     hovered = false,
     hoveredBy = {},
-    focused = false,
-    focusedBy = {},
     kind = kind,
     x = x, y = y, z = z,
     scale = scale,
@@ -283,11 +170,6 @@ function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
   return self.entities[#self.entities]
 end
 
--- Probably just put in copy tool
-function layout:copyEntity(entity)
-  return self:addEntity(entity.kind, entity.x + .1, entity.y + .1, entity.z + .1, entity.scale, entity.angle, entity.ax, entity.ay, entity.az)
-end
-
 function layout:removeEntity(entity)
   for i = 1, #self.entities do
     if self.entities[i] == entity then
@@ -295,6 +177,14 @@ function layout:removeEntity(entity)
       break
     end
   end
+end
+
+function layout:setLocked(entity, locked)
+  entity.locked = locked
+end
+
+function layout:setFocus(controller, entity)
+  self.focus[controller] = entity
 end
 
 function layout:drawEntities()
@@ -314,54 +204,22 @@ function layout:drawEntities()
 end
 
 function layout:drawEntityUI(entity)
-  local r, g, b = unpack(self.activeColor)
-  local alpha = .392
-  local highA = .784
-  if entity.hovered then alpha = highA end
-
   local model = self.models[entity.kind]
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
+
+  local r, g, b = unpack(self.activeColor)
+  local alpha = .392 * (entity.hovered and 2 or 1)
 
   lovr.graphics.push()
   lovr.graphics.translate(entity.x, entity.y, entity.z)
   lovr.graphics.translate(cx, cy, cz)
   lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
   lovr.graphics.translate(-cx, -cy, -cz)
-  if entity.hovered then
-    if entity.locked then
-      r, g, b = unpack(self.colors.orange)
-    end
-    lovr.graphics.setColor(r, g, b, alpha)
-  else
-    r, g, b = unpack(self.colors.default)
-    lovr.graphics.setColor(r, g, b, alpha)
-  end
+  lovr.graphics.setColor(r, g, b, .392 * (entity.hovered and 2 or 1))
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.pop()
-
-  for axis, locked in pairs(self.axisLock) do
-    if locked then
-      lovr.graphics.setLineWidth(2)
-      local x, y, z = entity.x, entity.y, entity.z
-      if axis == 'x' then
-        local r, g, b = unpack(self.colors.red)
-        lovr.graphics.setColor(r, g, b, highA)
-        lovr.graphics.line(x - 10, y, z, x + 10, y, z)
-      elseif axis == 'y' then
-        local r, g, b = unpack(self.colors.green)
-        lovr.graphics.setColor(r, g, b, highA)
-        lovr.graphics.line(x, y - 10, z, x, y + 10, z)
-      elseif axis == 'z' then
-        local r, g, b = unpack(self.colors.blue)
-        lovr.graphics.setColor(r, g, b, highA)
-        lovr.graphics.line(x, y, z - 10, x, y, z + 10)
-      end
-      lovr.graphics.setLineWidth(1)
-    end
-  end
-
   lovr.graphics.setColor(self.colors.default)
 end
 
