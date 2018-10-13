@@ -5,7 +5,7 @@ Copy.direction = 'up'
 function Copy:controllerpressed(controller, button)
   if button ~= 'touchpad' or self.layout:getTouchpadDirection(controller) ~= self.direction then return end
 
-  local entity = self.layout:getClosestEntity(controller)
+  local entity = self.layout:getClosestHover(controller)
   if entity and not entity.focused and not entity.locked then
     local x, y, z = entity.x + .1, entity.y + .1, entity.z + .1
     local scale = entity.scale

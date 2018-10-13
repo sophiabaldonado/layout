@@ -39,6 +39,7 @@ function layout:update(dt)
         if hovered ~= entity.hoveredBy[controller] then
           entity.hoveredBy[controller] = hovered
           if hovered then controller:vibrate(.002) end
+          self:eachTool('hover', entity, hovered, controller)
         end
       end
     end
@@ -140,12 +141,12 @@ function layout:isHoveredByController(entity, controller)
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
 
-function layout:getClosestEntity(controller)
+function layout:getClosestHover(controller)
   local x, y, z = self:cursorPos(controller)
   local minDistance, closestEntity = math.huge, nil
   for _, entity in pairs(self.entities) do
     local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
-    if d < minDistance and self:isHoveredByController(entity, controller) then
+    if d < minDistance and entity.hoveredBy[controller] then
       minDistance = d
       closestEntity = entity
     end
@@ -183,8 +184,9 @@ function layout:setLocked(entity, locked)
   entity.locked = locked
 end
 
-function layout:setFocus(controller, entity)
+function layout:setFocus(controller, entity, tool)
   self.focus[controller] = entity
+  self:eachTool('focus', controller, entity)
 end
 
 function layout:drawEntities()

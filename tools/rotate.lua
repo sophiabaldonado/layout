@@ -46,7 +46,7 @@ end
 
 function Rotate:controllerpressed(controller, button)
   if button == 'grip' then
-    local entity = self.layout:getClosestEntity(controller)
+    local entity = self.layout:getClosestHover(controller)
     if entity then
       self.active = true
       self.entity = entity

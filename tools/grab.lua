@@ -57,7 +57,7 @@ end
 
 function Grab:controllerpressed(controller, button)
   if button == 'trigger' then
-    local entity = self.layout:getClosestEntity(controller)
+    local entity = self.layout:getClosestHover(controller)
     if entity then
       self:grab(controller, entity)
     end
