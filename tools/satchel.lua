@@ -48,9 +48,6 @@ function Satchel:controllerpressed(controller, button)
     local controllerPosition = maf.vec3(controller:getPosition())
     for i, kind, ix, iy in self:items() do
       local itemPosition = maf.vec3(self.transform:transformPoint(ix, iy, 0))
-      print(itemPosition:unpack())
-      print(controllerPosition:unpack())
-      print(controllerPosition:distance(itemPosition), self.itemSize)
       if controllerPosition:distance(itemPosition) < self.itemSize / 2 then
         local model = self.layout.models[kind]
         local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
