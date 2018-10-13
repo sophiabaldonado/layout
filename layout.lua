@@ -108,7 +108,7 @@ end
 
 function layout:drawCursors()
   for _, controller in ipairs(self.controllers) do
-    local x, y, z = self:cursorPos(controller)
+    local x, y, z = self:cursorPosition(controller)
     lovr.graphics.setColor(1, 1, 1)
     lovr.graphics.cube('fill', x, y, z, .01)
   end
@@ -136,13 +136,13 @@ function layout:isHoveredByController(entity, controller)
   transform:translate(cx, cy, cz)
   transform:rotate(-t.angle, t.ax, t.ay, t.az)
   transform:translate(-cx, -cy, -cz)
-  local x, y, z = self:cursorPos(controller)
+  local x, y, z = self:cursorPosition(controller)
   x, y, z = transform:transformPoint(x - t.x, y - t.y, z - t.z)
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
 
 function layout:getClosestHover(controller)
-  local x, y, z = self:cursorPos(controller)
+  local x, y, z = self:cursorPosition(controller)
   local minDistance, closestEntity = math.huge, nil
   for _, entity in pairs(self.entities) do
     local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
