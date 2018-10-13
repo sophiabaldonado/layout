@@ -99,7 +99,7 @@ end
 ----------------
 -- Cursors
 ----------------
-function layout:cursorPos(controller)
+function layout:cursorPosition(controller)
   local offset = .075
   local x, y, z = controller:getPosition()
   local ox, oy, oz = lovr.math.orientationToDirection(controller:getOrientation())
