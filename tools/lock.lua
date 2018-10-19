@@ -1,14 +1,11 @@
 local Lock = {}
 
-Lock.direction = 'right'
+Lock.context = 'hover'
+Lock.button = 'left'
+Lock.lockpick = true
 
-function Lock:controllerpressed(controller, button)
-  if button ~= 'touchpad' or self.layout:getTouchpadDirection(controller) ~= self.direction then return end
-
-  local entity = self.layout:getClosestHover(controller)
-  if entity and not entity.focused then
-    self.layout:setLock(entity, not entity.locked)
-  end
+function Lock:use(controller, entity)
+  self.layout:setLock(entity, not entity.locked)
 end
 
 return Lock
