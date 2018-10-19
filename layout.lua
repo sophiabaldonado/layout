@@ -151,14 +151,16 @@ function layout:isHoveredByController(entity, controller)
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
 
-function layout:getClosestHover(controller)
+function layout:getClosestHover(controller, includeLocked)
   local x, y, z = self:cursorPosition(controller)
   local minDistance, closestEntity = math.huge, nil
   for _, entity in pairs(self.entities) do
-    local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
-    if d < minDistance and entity.hoveredBy[controller] then
-      minDistance = d
-      closestEntity = entity
+    if not entity.locked or includeLocked then
+      local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
+      if d < minDistance and entity.hoveredBy[controller] then
+        minDistance = d
+        closestEntity = entity
+      end
     end
   end
   return closestEntity, math.sqrt(minDistance)
