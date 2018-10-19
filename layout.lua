@@ -45,6 +45,11 @@ function layout:update(dt)
     end
   end
 
+  -- Use continuous tools
+  for controller, focus in pairs(self.focus) do
+    focus.tool:use(controller, focus.entity, dt)
+  end
+
   self:eachTool('update', dt)
 end
 
@@ -65,7 +70,12 @@ function layout:controllerpressed(controller, button)
     if button == tool.button then
       local entity = self:getClosestHover(controller, tool.lockpick)
       if (entity and tool.context == 'hover') or (not entity and tool.context == 'default') then
-        tool:use(controller, entity)
+        if tool.continuous then
+          self.focus[controller] = { tool = tool, entity = entity }
+          if tool.start then tool:start(controller, entity) end
+        else
+          if tool.use then tool:use(controller, entity) end
+        end
       end
     end
   end
@@ -73,6 +83,15 @@ end
 
 function layout:controllerreleased(controller, button)
   self:eachTool('controllerreleased', controller, button)
+
+  button = button == 'touchpad' and self:getTouchpadDirection(button) or button
+  if self.focus[controller] then
+    local tool = self.focus[controller].tool
+    if tool.button == button then
+      if tool.stop then tool:stop() end
+      self.focus[controller] = nil
+    end
+  end
 end
 
 function layout:controlleradded(controller)
@@ -82,7 +101,11 @@ end
 function layout:controllerremoved(controller)
   for i, entity in ipairs(self.entities) do
     entity.hoveredBy[controller] = nil
-    entity.focusedBy[controller] = nil
+  end
+
+  if self.focus[controller] then
+    if self.focus[controller].tool.stop then self.focus[controller].tool:stop() end
+    self.focus[controller] = nil
   end
 
   self:refreshControllers()
