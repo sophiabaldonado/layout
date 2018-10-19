@@ -59,6 +59,16 @@ end
 ----------------
 function layout:controllerpressed(controller, button)
   self:eachTool('controllerpressed', controller, button)
+
+  button = button == 'touchpad' and self:getTouchpadDirection(button) or button
+  for _, tool in ipairs(self.tools) do
+    if button == tool.button then
+      local entity = self:getClosestHover(controller)
+      if (entity and tool.context == 'hover') or (not entity and tool.context == 'default') then
+        tool:use(controller, entity)
+      end
+    end
+  end
 end
 
 function layout:controllerreleased(controller, button)
