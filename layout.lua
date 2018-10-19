@@ -289,7 +289,7 @@ function layout:loadModels()
   self.models = {}
   local path = 'models'
   for i, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-    if file:match('%.obj$') or file:match('%.gltf$') or file:match('%.fbx$') then
+    if file:match('%.obj$') or file:match('%.gltf$') then
       if i > 5 then return end
       local id = file:gsub('%.%a+$', '')
       self.models[id] = lovr.graphics.newModel(path .. '/' .. file)
