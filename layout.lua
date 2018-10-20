@@ -88,7 +88,7 @@ function layout:controllerreleased(controller, button)
   if self.focus[controller] then
     local tool = self.focus[controller].tool
     if tool.button == button then
-      if tool.stop then tool:stop() end
+      if tool.stop then tool:stop(controller, self.focus[controller].entity) end
       self.focus[controller] = nil
     end
   end
