@@ -99,14 +99,17 @@ function layout:controllerpressed(controller, rawButton)
     -- TODO is this weird
     if tool.continuous then
       self.focus[controller] = { tool = tool, entity = entity }
+      controller:vibrate(.003)
 
       if tool.twoHanded then
         self.focus[otherController] = self.focus[controller]
+        otherController:vibrate(.003)
       end
 
       if tool.start then tool:start(controller, entity) end
     else
       if tool.use then tool:use(controller, entity) end
+      controller:vibrate(.003)
     end
   end
 
