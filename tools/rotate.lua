@@ -15,7 +15,7 @@ function Rotate:init()
 end
 
 function Rotate:start(controller, entity)
-  self.position:set(controller:getPosition())
+  self.position:set(self.layout:cursorPosition(controller))
   self.lastPosition:set(self.position)
   self.bzz = 0
 end
@@ -30,7 +30,7 @@ function Rotate:use(controller, entity, dt)
   local minx, maxx, miny, maxy, minz, maxz = entity.model:getAABB()
   local cx, cy, cz = (minx + maxx) / 2 * scale, (miny + maxy) / 2 * scale, (minz + maxz) / 2 * scale
   origin:set(entity.x + cx, entity.y + cy, entity.z + cz)
-  self.position:set(controller:getPosition())
+  self.position:set(self.layout:cursorPosition(controller))
   dir1:set(self.lastPosition):sub(origin):normalize()
   dir2:set(self.position):sub(origin):normalize()
   delta:between(d2, d1)
