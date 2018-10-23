@@ -6,7 +6,7 @@ Lock.button = 'left'
 Lock.lockpick = true
 
 function Lock:use(controller, entity)
-  self.layout:setLock(entity, not entity.locked)
+  self.layout:setLocked(entity, not entity.locked)
 end
 
 return Lock
