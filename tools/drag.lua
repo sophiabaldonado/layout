@@ -13,6 +13,8 @@ end
 function Drag:start(controller, entity)
   local x, y, z = self.layout:cursorPosition(controller)
 
+  -- FIXME we should prevent both controllers from simultaneously having an active drag because
+  -- they'll fight over custody
   self.drags[controller] = {
     entity = entity,
     offset = { x = entity.x - x, y = entity.y - y, z = entity.z - z },

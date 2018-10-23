@@ -19,7 +19,7 @@ function layout:init()
   self.focus = {}
   self.tools = {}
 
-  for _, t in ipairs({ 'drag', 'rotate', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
+  for _, t in ipairs({ 'drag', 'rotate', 'scale', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
   end
 
@@ -70,7 +70,7 @@ function layout:controllerpressed(controller, rawButton)
   local function useTool(tool)
     if tool.button ~= button then return end
 
-    local entity = self:getClosestHover(controller, tool.lockpick)
+    local entity = self:getClosestHover(controller, tool.lockpick, tool.twoHanded)
     local context = entity and 'hover' or 'default'
     if tool.context ~= context then return end
 
@@ -92,6 +92,8 @@ function layout:controllerpressed(controller, rawButton)
       elseif not otherController:isDown(rawButton) or otherButton ~= button then
         return
       end
+    elseif self.focus[controller] and self.focus[controller].tool.twoHanded then
+      return -- two handed tools have priority
     end
 
     -- A continuous tool calls start once, then calls use in update
@@ -199,12 +201,13 @@ function layout:drawCursors()
 end
 
 local transform = lovr.math.newTransform()
-function layout:isHoveredByController(entity, controller)
+function layout:isHoveredByController(entity, controller, includeLocked, includeFocused)
 
   -- Currently if a controller is focusing on an entity then it can't hover over other entities.
   -- This is okay right now but it prohibits doing interesting things like dragging an entity onto
   -- another entity, so it may need to be adjusted in the future.
-  if not controller or self.focus[controller] then return false end
+  if not controller or (not includeFocused and self.focus[controller]) then return false end
+  if not includeLocked and entity.locked then return false end
 
   local function addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, scale)
     local w, h, d = (maxx - minx) * scale, (maxy - miny) * scale, (maxz - minz) * scale
@@ -230,16 +233,14 @@ function layout:isHoveredByController(entity, controller)
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
 
-function layout:getClosestHover(controller, includeLocked)
+function layout:getClosestHover(controller, includeLocked, includeFocused)
   local x, y, z = self:cursorPosition(controller)
   local minDistance, closestEntity = math.huge, nil
   for _, entity in pairs(self.entities) do
-    if not entity.locked or includeLocked then
-      local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
-      if d < minDistance and entity.hoveredBy[controller] then
-        minDistance = d
-        closestEntity = entity
-      end
+    local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
+    if d < minDistance and self:isHoveredByController(entity, controller, includeLocked, includeFocused) then
+      minDistance = d
+      closestEntity = entity
     end
   end
   return closestEntity, math.sqrt(minDistance)
