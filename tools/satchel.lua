@@ -22,6 +22,7 @@ function Satchel:draw()
 
   lovr.graphics.push()
   lovr.graphics.transform(self.transform)
+  lovr.graphics.setColor(1, 1, 1)
 
   for i, kind, x, y in self:items() do
     local model = self.layout.models[kind]
