@@ -61,4 +61,21 @@ Drag.modifiers = {
   right = axisLock('z')
 }
 
+local axisBasis = { x = { 1, 0, 0 }, y = { 0, 1, 0 }, z = { 0, 0, 1 } }
+function Drag:draw()
+  for controller, drag in pairs(self.drags) do
+    local x, y, z = self.layout:cursorPosition(controller)
+
+    for axis, locked in pairs(drag.lock) do
+      if locked then
+        local basis = axisBasis[axis]
+        local color = { .3 + .5 * basis[1], .3 + .5 * basis[2], .3 + .5 * basis[3], 1 }
+        local xx, yy, zz = basis[1] * 100, basis[2] * 100, basis[3] * 100
+        lovr.graphics.setColor(color)
+        lovr.graphics.line(x - xx, y - yy, z - zz, x + xx, y + yy, z + zz)
+      end
+    end
+  end
+end
+
 return Drag

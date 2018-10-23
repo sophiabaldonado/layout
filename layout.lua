@@ -68,7 +68,7 @@ function layout:controllerpressed(controller, rawButton)
   local otherController = self:getOtherController(controller)
   local button = rawButton == 'touchpad' and self:getTouchpadDirection(controller) or rawButton
 
-  -- Tries to use a tool
+  -- Tries to use a tool.  This or parts of it should be extracted into in the 'tools' section below
   local function useTool(tool)
     if tool.button ~= button then return end
 
