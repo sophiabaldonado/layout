@@ -19,7 +19,7 @@ function layout:init()
   self.focus = {}
   self.tools = {}
 
-  for _, t in ipairs({ 'grab', 'rotate', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
+  for _, t in ipairs({ 'drag', 'rotate', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
   end
 
@@ -225,6 +225,7 @@ function layout:setFocus(controller, entity, tool)
 end
 
 function layout:drawEntities()
+  lovr.graphics.setColor(1, 1, 1)
   for _, entity in ipairs(self.entities) do
     local model = self.models[entity.kind]
     local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
@@ -257,7 +258,6 @@ function layout:drawEntityUI(entity)
   lovr.graphics.setColor(r, g, b, .392 * (entity.hovered and 2 or 1))
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.pop()
-  lovr.graphics.setColor(self.colors.default)
 end
 
 ----------------

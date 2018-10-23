@@ -11,7 +11,7 @@ function Drag:init()
 end
 
 function Drag:start(controller, entity)
-  local x, y, z = self.layout:cursorPos(controller)
+  local x, y, z = self.layout:cursorPosition(controller)
 
   self.drags[controller] = {
     entity = entity,
@@ -26,7 +26,7 @@ function Drag:use(controller, entity, dt)
   if not drag then return end
 
   -- Move the entity
-  local x, y, z = controller:getPosition()
+  local x, y, z = self.layout:cursorPosition(controller)
   x, y, z = x + drag.offset.x, y + drag.offset.y, z + drag.offset.z
   local dx, dy, dz = x - drag.entity.x, y - drag.entity.y, z - drag.entity.z
   local locked = drag.lock.x or drag.lock.y, drag.lock.z
