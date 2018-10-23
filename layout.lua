@@ -31,8 +31,9 @@ function layout:update(dt)
 
   -- Calculate hover state
   for i, entity in ipairs(self.entities) do
+    entity.hovered = false
+    entity.focused = false
     if not entity.locked then
-      entity.hovered = false
       for _, controller in ipairs(self.controllers) do
         local hovered = self:isHoveredByController(entity, controller)
         entity.hovered = entity.hovered or hovered
@@ -47,6 +48,7 @@ function layout:update(dt)
 
   -- Use continuous tools
   for controller, focus in pairs(self.focus) do
+    focus.entity.focused = true
     focus.tool:use(controller, focus.entity, dt)
   end
 
@@ -293,7 +295,6 @@ function layout:drawEntities()
     lovr.graphics.setColor(1, 1, 1)
     model:draw(entity.x, entity.y, entity.z, entity.scale)
     lovr.graphics.pop()
-
     self:drawEntityUI(entity)
   end
 end
@@ -303,16 +304,14 @@ function layout:drawEntityUI(entity)
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
-
-  local r, g, b = 1, 1, 1
-  local alpha = .392 * (entity.hovered and 2 or 1)
+  local r, g, b, a = 1, 1, 1, .392 * ((entity.hovered or entity.focused) and 2 or 1)
 
   lovr.graphics.push()
   lovr.graphics.translate(entity.x, entity.y, entity.z)
   lovr.graphics.translate(cx, cy, cz)
   lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
   lovr.graphics.translate(-cx, -cy, -cz)
-  lovr.graphics.setColor(r, g, b, .392 * (entity.hovered and 2 or 1))
+  lovr.graphics.setColor(r, g, b, a)
   lovr.graphics.box('line', cx, cy, cz, w, h, d)
   lovr.graphics.pop()
 end
