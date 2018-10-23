@@ -246,7 +246,7 @@ function layout:drawEntityUI(entity)
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
 
-  local r, g, b = unpack(self.activeColor)
+  local r, g, b = 1, 1, 1
   local alpha = .392 * (entity.hovered and 2 or 1)
 
   lovr.graphics.push()
