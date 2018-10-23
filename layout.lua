@@ -225,7 +225,6 @@ function layout:setFocus(controller, entity, tool)
 end
 
 function layout:drawEntities()
-  lovr.graphics.setColor(1, 1, 1)
   for _, entity in ipairs(self.entities) do
     local model = self.models[entity.kind]
     local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
@@ -234,6 +233,7 @@ function layout:drawEntities()
     lovr.graphics.translate(entity.x + cx, entity.y + cy, entity.z + cz)
     lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
     lovr.graphics.translate(-entity.x - cx, -entity.y - cy, -entity.z - cz)
+    lovr.graphics.setColor(1, 1, 1)
     model:draw(entity.x, entity.y, entity.z, entity.scale)
     lovr.graphics.pop()
 
