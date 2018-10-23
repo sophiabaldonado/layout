@@ -115,8 +115,15 @@ function layout:controllerpressed(controller, rawButton)
 
   self:eachTool('controllerpressed', controller, rawButton)
 
-  for _, tool in ipairs(self.tools) do
-    useTool(tool)
+  if self.focus[controller] then
+    local tool = self.focus[controller].tool
+    if tool.modifiers and tool.modifiers[button] then
+      tool.modifiers[button](tool, controller)
+    end
+  else
+    for _, tool in ipairs(self.tools) do
+      useTool(tool)
+    end
   end
 end
 

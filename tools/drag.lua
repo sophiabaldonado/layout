@@ -46,4 +46,16 @@ function Drag:stop(controller)
   self.drags[controller] = nil
 end
 
+local function axisLock(axis)
+  return function(self, controller)
+    self.drags[controller].lock[axis] = not self.drags[controller].lock[axis]
+  end
+end
+
+Drag.modifiers = {
+  left = axisLock('x'),
+  up = axisLock('y'),
+  right = axisLock('z')
+}
+
 return Drag
