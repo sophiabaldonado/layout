@@ -32,7 +32,7 @@ function Drag:use(controller, entity, dt)
   local x, y, z = self.layout:cursorPosition(controller)
   x, y, z = x + drag.offset.x, y + drag.offset.y, z + drag.offset.z
   local dx, dy, dz = x - drag.entity.x, y - drag.entity.y, z - drag.entity.z
-  local locked = drag.lock.x or drag.lock.y, drag.lock.z
+  local locked = drag.lock.x or drag.lock.y or drag.lock.z
   local lx, ly, lz = not locked or drag.lock.x, not locked or drag.lock.y, not locked or drag.lock.z
   dx, dy, dz = lx and dx or 0, ly and dy or 0, lz and dz or 0 -- idk if this works
   drag.entity.x, drag.entity.y, drag.entity.z = drag.entity.x + dx, drag.entity.y + dy, drag.entity.z + dz
@@ -64,7 +64,7 @@ Drag.modifiers = {
 local axisBasis = { x = { 1, 0, 0 }, y = { 0, 1, 0 }, z = { 0, 0, 1 } }
 function Drag:draw()
   for controller, drag in pairs(self.drags) do
-    local x, y, z = self.layout:cursorPosition(controller)
+    local x, y, z = drag.entity.x, drag.entity.y, drag.entity.z
 
     for axis, locked in pairs(drag.lock) do
       if locked then
