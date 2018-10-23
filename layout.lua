@@ -149,7 +149,12 @@ end
 
 local transform = lovr.math.newTransform()
 function layout:isHoveredByController(entity, controller)
-  if not controller then return false end
+
+  -- Currently if a controller is focusing on an entity then it can't hover over other entities.
+  -- This is okay right now but it prohibits doing interesting things like dragging an entity onto
+  -- another entity, so it may need to be adjusted in the future.
+  if not controller or self.focus[controller] then return false end
+
   local function addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, scale)
     local w, h, d = (maxx - minx) * scale, (maxy - miny) * scale, (maxz - minz) * scale
     if w <= .005 then minx = minx + .005 end
