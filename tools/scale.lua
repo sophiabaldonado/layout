@@ -2,6 +2,7 @@
 
 local Scale = {}
 
+Scale.name = 'Scale'
 Scale.continuous = true
 Scale.context = 'hover'
 Scale.button = 'trigger'

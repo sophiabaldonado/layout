@@ -1,5 +1,6 @@
 local Lock = {}
 
+Lock.name = 'Lock'
 Lock.context = 'hover'
 Lock.button = 'left'
 Lock.lockpick = true

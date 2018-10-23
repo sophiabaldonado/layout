@@ -2,6 +2,7 @@
 
 local Copy = {}
 
+Copy.name = 'Copy'
 Copy.context = 'hover'
 Copy.button = 'up'
 

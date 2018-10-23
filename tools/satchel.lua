@@ -2,6 +2,7 @@ local maf = require 'maf'
 
 local Satchel = {}
 
+Satchel.name = 'Satchel'
 Satchel.itemSize = .09
 
 function Satchel:init()

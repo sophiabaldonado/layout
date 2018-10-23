@@ -4,6 +4,7 @@ local maf = require 'maf'
 
 local Rotate = {}
 
+Rotate.name = 'Rotate'
 Rotate.continuous = true
 Rotate.context = 'hover'
 Rotate.button = 'grip'

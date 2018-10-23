@@ -2,6 +2,7 @@
 
 local Delete = {}
 
+Delete.name = 'Delete'
 Delete.context = 'hover'
 Delete.button = 'right'
 

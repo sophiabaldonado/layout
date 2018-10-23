@@ -2,6 +2,7 @@
 
 local Drag = {}
 
+Drag.name = 'Drag'
 Drag.continuous = true
 Drag.context = 'hover'
 Drag.button = 'trigger'
