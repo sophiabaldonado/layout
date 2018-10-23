@@ -62,34 +62,75 @@ end
 ----------------
 -- Controllers
 ----------------
-function layout:controllerpressed(controller, button)
-  self:eachTool('controllerpressed', controller, button)
+function layout:controllerpressed(controller, rawButton)
+  local otherController = self:getOtherController(controller)
+  local button = rawButton == 'touchpad' and self:getTouchpadDirection(controller) or rawButton
 
-  button = button == 'touchpad' and self:getTouchpadDirection(button) or button
-  for _, tool in ipairs(self.tools) do
-    if button == tool.button then
-      local entity = self:getClosestHover(controller, tool.lockpick)
-      if (entity and tool.context == 'hover') or (not entity and tool.context == 'default') then
-        if tool.continuous then
-          self.focus[controller] = { tool = tool, entity = entity }
-          if tool.start then tool:start(controller, entity) end
-        else
-          if tool.use then tool:use(controller, entity) end
+  -- Tries to use a tool
+  local function useTool(tool)
+    if tool.button ~= button then return end
+
+    local entity = self:getClosestHover(controller, tool.lockpick)
+    local context = entity and 'hover' or 'default'
+    if tool.context ~= context then return end
+
+    -- If I'm a two-handed tool, I can only be used if:
+    --   * Another continuous tool is being used on the same entity that I'm hovering over,
+    --     AND that tool has the same button as me.
+    --   * No tool is being used on the other controller but it's hovering over the same entity
+    --     as me AND it's holding down my button
+    if tool.twoHanded then
+      local otherButton = rawButton == 'touchpad' and self:getTouchpadDirection(otherController) or rawButton
+      local otherFocus = self.focus[otherController]
+
+      if otherFocus then
+        if otherFocus.tool.button ~= button or otherFocus.entity ~= entity then
+          return
+        elseif otherFocus.tool.stop then
+          otherFocus.tool:stop(controller, otherFocus.entity)
         end
+      elseif not otherController:isDown(rawButton) or otherButton ~= button then
+        return
       end
     end
+
+    -- A continuous tool calls start once, then calls use in update
+    -- Non continuous tools just call use once when the button is pressed
+    -- TODO is this weird
+    if tool.continuous then
+      self.focus[controller] = { tool = tool, entity = entity }
+
+      if tool.twoHanded then
+        self.focus[otherController] = self.focus[controller]
+      end
+
+      if tool.start then tool:start(controller, entity) end
+    else
+      if tool.use then tool:use(controller, entity) end
+    end
+  end
+
+  self:eachTool('controllerpressed', controller, rawButton)
+
+  for _, tool in ipairs(self.tools) do
+    useTool(tool)
   end
 end
 
-function layout:controllerreleased(controller, button)
-  self:eachTool('controllerreleased', controller, button)
+function layout:controllerreleased(controller, rawButton)
+  local button = rawButton == 'touchpad' and self:getTouchpadDirection(controller) or rawButton
+  self:eachTool('controllerreleased', controller, rawButton)
 
-  button = button == 'touchpad' and self:getTouchpadDirection(button) or button
   if self.focus[controller] then
     local tool = self.focus[controller].tool
     if tool.button == button then
       if tool.stop then tool:stop(controller, self.focus[controller].entity) end
       self.focus[controller] = nil
+
+      if tool.twoHanded then
+        self.focus[self:getOtherController(controller)] = nil
+        -- FIXME check if we can re-enable a one-handed tool here, maybe use a stack
+      end
     end
   end
 end
