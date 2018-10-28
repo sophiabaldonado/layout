@@ -5,10 +5,16 @@ local dot = base:match('%.') and '.' or '/'
 
 local layout = {}
 
+local defaultConfig = {
+  cursorSize = .01
+}
+
 ----------------
 -- Callbacks
 ----------------
-function layout:init()
+function layout:init(config)
+  self.config = setmetatable(config or {}, defaultConfig)
+
   self:loadModels()
   self:refreshControllers()
 
@@ -198,7 +204,7 @@ function layout:drawCursors()
   for _, controller in ipairs(self.controllers) do
     local x, y, z = self:cursorPosition(controller)
     lovr.graphics.setColor(1, 1, 1)
-    lovr.graphics.cube('fill', x, y, z, .01)
+    lovr.graphics.cube('fill', x, y, z, self.config.cursorSize)
   end
 end
 
