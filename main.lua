@@ -20,10 +20,13 @@ function lovr.load()
 
 	localGrid = grid.new(5, 5, .25, { .8, .25, .5, .25 })
 
+	local defaultFile = 'default.json'
+	local loadFile = fs.isFile(defaultFile) and json.decode(fs.read(defaultFile)) or nil
+
 	layout:init({
-	  state = t,
-	  cursorSize = .03 -- bool | number
-	  onChange = function() end
+	  state = loadFile or {},
+	  cursorSize = .03
+	  onChange = function(state) end
 	  onHover = function(entity, controller) end
 	})
 end
