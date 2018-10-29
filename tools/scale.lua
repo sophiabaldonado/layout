@@ -27,8 +27,8 @@ function Scale:use(controller, entity, dt)
   -- Bzz
   self.bzz = self.bzz + math.abs(distance - ref)
   if self.bzz >= .1 then
-    controller:vibrate(.001)
-    otherController:vibrate(.001)
+    self.layout:vibrate(controller, .001)
+    self.layout:vibrate(otherController, .001)
     self.bzz = 0
   end
 

@@ -38,7 +38,7 @@ function Rotate:use(controller, entity, dt)
 
   self.bzz = self.bzz + self.position:distance(self.lastPosition)
   if self.bzz >= .1 then
-    controller:vibrate(.001)
+    self.layout:vibrate(controller, .001)
     self.bzz = 0
   end
 

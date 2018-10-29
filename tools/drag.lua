@@ -40,7 +40,7 @@ function Drag:use(controller, entity, dt)
   -- Bzz every .1m
   drag.bzz = drag.bzz + math.sqrt(dx ^ 2 + dy ^ 2 + dz ^ 2)
   if drag.bzz >= .1 then
-    controller:vibrate(.001)
+    self.layout:vibrate(controller, .001)
     drag.bzz = 0
   end
 end

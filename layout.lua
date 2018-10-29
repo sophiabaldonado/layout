@@ -5,24 +5,38 @@ local dot = base:match('%.') and '.' or '/'
 
 local layout = {}
 
+local function merge(a, b)
+  for k, v in pairs(a or {}) do
+    if type(v) == 'table' and type(b[k] or false) == 'table' then
+      merge(b[k], v)
+    else
+      b[k] = v
+    end
+  end
+  return b
+end
+
 local defaultConfig = {
-  cursorSize = .01
+  cursorSize = .01,
+  haptics = true
+}
+
+local defaultState = {
+  entities = {}
 }
 
 ----------------
 -- Callbacks
 ----------------
 function layout:init(config)
-  self.config = setmetatable(config or {}, defaultConfig)
+  self.config = merge(config, defaultConfig)
+  self.state = merge(self.config.state, defaultState)
 
   self:loadModels()
   self:refreshControllers()
 
-  self.isDirty = false
-  self.lastChange = nil
-
-  self.entities = {}
   self.focus = {}
+  self.hover = {}
   self.tools = {}
 
   for _, t in ipairs({ 'drag', 'rotate', 'scale', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
@@ -35,26 +49,22 @@ end
 function layout:update(dt)
   self:autosave()
 
-  -- Calculate hover state
-  for i, entity in ipairs(self.entities) do
-    entity.hovered = false
-    entity.focused = false
-    if not entity.locked then
-      for _, controller in ipairs(self.controllers) do
-        local hovered = self:isHoveredByController(entity, controller)
-        entity.hovered = entity.hovered or hovered
-        if hovered ~= entity.hoveredBy[controller] then
-          entity.hoveredBy[controller] = hovered
-          if hovered then controller:vibrate(.002) end
-          self:eachTool('hover', entity, hovered, controller)
-        end
+  -- Update hover state
+  for _, controller in ipairs(self.controllers) do
+    local hover = self:getClosestHover(controller)
+    if hover ~= self.hover[controller] then
+      if hover then
+        self:vibrate(controller, .002)
+        if self.config.onHover then self.config.onHover(entity, controller) end
       end
+
+      self.hover[controller] = hover
+      self:eachTool('hover', entity, hovered, controller)
     end
   end
 
   -- Use continuous tools
   for controller, focus in pairs(self.focus) do
-    focus.entity.focused = true
     focus.tool:use(controller, focus.entity, dt)
   end
 
@@ -109,17 +119,17 @@ function layout:controllerpressed(controller, rawButton)
     -- TODO is this weird
     if tool.continuous then
       self.focus[controller] = { tool = tool, entity = entity }
-      controller:vibrate(.003)
+      self:vibrate(controller, .003)
 
       if tool.twoHanded then
         self.focus[otherController] = self.focus[controller]
-        otherController:vibrate(.003)
+        self:vibrate(otherController, .003)
       end
 
       if tool.start then tool:start(controller, entity) end
     else
       if tool.use then tool:use(controller, entity) end
-      controller:vibrate(.003)
+      self:vibrate(controller, .003)
     end
   end
 
@@ -160,9 +170,7 @@ function layout:controlleradded(controller)
 end
 
 function layout:controllerremoved(controller)
-  for i, entity in ipairs(self.entities) do
-    entity.hoveredBy[controller] = nil
-  end
+  self.hover[controller] = nil
 
   if self.focus[controller] then
     if self.focus[controller].tool.stop then self.focus[controller].tool:stop() end
@@ -190,6 +198,10 @@ function layout:getTouchpadDirection(controller)
   return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[angle] or 'right'
 end
 
+function layout:vibrate(controller, ...)
+  if self.config.haptics then controller:vibrate(...) end
+end
+
 ----------------
 -- Cursors
 ----------------
@@ -208,8 +220,53 @@ function layout:drawCursors()
   end
 end
 
+function layout:getClosestHover(controller, includeLocked, includeFocused)
+  local x, y, z = self:cursorPosition(controller)
+  local minDistance, closestEntity = math.huge, nil
+  for _, entity in ipairs(self.state.entities) do
+    local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
+    if d < minDistance and self:isHovered(entity, controller, includeLocked, includeFocused) then
+      minDistance = d
+      closestEntity = entity
+    end
+  end
+  return closestEntity, math.sqrt(minDistance)
+end
+
+----------------
+-- Entities
+----------------
+function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
+  table.insert(self.state.entities, {
+    locked = false,
+    kind = kind,
+    x = x, y = y, z = z,
+    scale = scale,
+    angle = angle, ax = ax, ay = ay, az = az
+  })
+
+  return self.state.entities[#self.state.entities]
+end
+
+function layout:removeEntity(entity)
+  for i = 1, #self.state.entities do
+    if self.state.entities[i] == entity then
+      table.remove(self.state.entities, i)
+      break
+    end
+  end
+end
+
+function layout:setTransform(entity, ...)
+  entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = ...
+end
+
+function layout:setLocked(entity, locked)
+  entity.locked = locked
+end
+
 local transform = lovr.math.newTransform()
-function layout:isHoveredByController(entity, controller, includeLocked, includeFocused)
+function layout:isHovered(entity, controller, includeLocked, includeFocused)
 
   -- Currently if a controller is focusing on an entity then it can't hover over other entities.
   -- This is okay right now but it prohibits doing interesting things like dragging an entity onto
@@ -241,56 +298,18 @@ function layout:isHoveredByController(entity, controller, includeLocked, include
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
 
-function layout:getClosestHover(controller, includeLocked, includeFocused)
-  local x, y, z = self:cursorPosition(controller)
-  local minDistance, closestEntity = math.huge, nil
-  for _, entity in pairs(self.entities) do
-    local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
-    if d < minDistance and self:isHoveredByController(entity, controller, includeLocked, includeFocused) then
-      minDistance = d
-      closestEntity = entity
+function layout:isFocused(entity, controller)
+  for c, focus in pairs(self.focus) do
+    if (not controller or c == controller) and focus.entity == entity then
+      return true
     end
   end
-  return closestEntity, math.sqrt(minDistance)
-end
 
-----------------
--- Entities
-----------------
-function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
-  table.insert(self.entities, {
-    locked = false,
-    hovered = false,
-    hoveredBy = {},
-    kind = kind,
-    x = x, y = y, z = z,
-    scale = scale,
-    angle = angle, ax = ax, ay = ay, az = az
-  })
-
-  return self.entities[#self.entities]
-end
-
-function layout:removeEntity(entity)
-  for i = 1, #self.entities do
-    if self.entities[i] == entity then
-      table.remove(self.entities, i)
-      break
-    end
-  end
-end
-
-function layout:setLocked(entity, locked)
-  entity.locked = locked
-end
-
-function layout:setFocus(controller, entity, tool)
-  self.focus[controller] = entity
-  self:eachTool('focus', controller, entity)
+  return false
 end
 
 function layout:drawEntities()
-  for _, entity in ipairs(self.entities) do
+  for _, entity in ipairs(self.state.entities) do
     local model = self.models[entity.kind]
     local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
     local cx, cy, cz = (minx + maxx) / 2 * entity.scale, (miny + maxy) / 2 * entity.scale, (minz + maxz) / 2 * entity.scale
@@ -310,7 +329,7 @@ function layout:drawEntityUI(entity)
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
-  local r, g, b, a = 1, 1, 1, .392 * ((entity.hovered or entity.focused) and 2 or 1)
+  local r, g, b, a = 1, 1, 1, .392 * ((self:isHovered(entity) or self:isFocused(entity)) and 2 or 1)
 
   lovr.graphics.push()
   lovr.graphics.translate(entity.x, entity.y, entity.z)
@@ -325,61 +344,10 @@ end
 ----------------
 -- IO
 ----------------
-function layout:load(filename)
-  self.filename = filename
-  local path = lovr.filesystem.isFile('levels/'..filename..'.json') and 'levels/'..filename..'.json' or 'default.json'
-  self.data = json.decode(lovr.filesystem.read(path))
-
-  if self.data.entities then
-    for _, entity in ipairs(self.data.entities) do
-      self:addEntity(entity.kind, unpack(entity.transform))
-    end
-  end
-end
-
---[[
-function layout:save()
-  local saveData = {}
-  self.filename = self.filename or nextFilename('untitled')
-  local path = 'levels/'..self.filename..'.json'
-  saveData.entities = {}
-
-  for i, entity in ipairs(self.entities) do
-    saveData.entities[i] = {
-      transform = { entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az },
-      kind = entity.typeId
-    }
-  end
-  print(self.filename, path)
-  lovr.filesystem.createDirectory('levels')
-  lovr.filesystem.write(path, json.encode(saveData))
-end
-]]
-
---[[
-function layout:saveAsCopy()
-  self.filename = self.filename and self:nextFilename(self.filename) or nil
-  self:save()
-end
-
-function layout:nextFilename(filename)
-  local function versionFilename(name, version) return name .. '-' .. string.format('%02d', version) end
-  local i = 1
-  while lovr.filesystem.isFile('levels/' .. versionFilename(filename, i) .. '.json') do i = i + 1 end
-  return versionFilename(filename, i) -- TODO: make this not return 'mujugarden-02-01'
-end
-]]
-
-function layout:autosave()
-  if self.isDirty and self.lastChange and lovr.timer.getTime() - self.lastChange > 3 then
-    --self:save()
-    self.isDirty = false
-  end
-end
-
 function layout:dirty()
-  self.isDirty = true
-  self.lastChange = lovr.timer.getTime()
+  if self.config.onChange then
+    self.config.onChange(self.state)
+  end
 end
 
 function layout:loadModels()
