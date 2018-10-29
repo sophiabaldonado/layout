@@ -12,7 +12,7 @@ function Drag:init()
 end
 
 function Drag:start(controller, entity)
-  local x, y, z = self.layout:cursorPosition(controller)
+  local x, y, z = self.layout:getCursorPosition(controller)
 
   -- FIXME we should prevent both controllers from simultaneously having an active drag because
   -- they'll fight over custody
@@ -29,18 +29,20 @@ function Drag:use(controller, entity, dt)
   if not drag then return end
 
   -- Move the entity
-  local x, y, z = self.layout:cursorPosition(controller)
+  local entity = drag.entity
+  local x, y, z = self.layout:getCursorPosition(controller)
   x, y, z = x + drag.offset.x, y + drag.offset.y, z + drag.offset.z
-  local dx, dy, dz = x - drag.entity.x, y - drag.entity.y, z - drag.entity.z
+  local dx, dy, dz = x - entity.x, y - entity.y, z - entity.z
   local locked = drag.lock.x or drag.lock.y or drag.lock.z
   local lx, ly, lz = not locked or drag.lock.x, not locked or drag.lock.y, not locked or drag.lock.z
   dx, dy, dz = lx and dx or 0, ly and dy or 0, lz and dz or 0 -- idk if this works
-  drag.entity.x, drag.entity.y, drag.entity.z = drag.entity.x + dx, drag.entity.y + dy, drag.entity.z + dz
+  entity.x, entity.y, entity.z = entity.x + dx, entity.y + dy, entity.z + dz
+  self.layout:dirty()
 
   -- Bzz every .1m
   drag.bzz = drag.bzz + math.sqrt(dx ^ 2 + dy ^ 2 + dz ^ 2)
   if drag.bzz >= .1 then
-    controller:vibrate(.001)
+    self.layout:vibrate(controller, .001)
     drag.bzz = 0
   end
 end
