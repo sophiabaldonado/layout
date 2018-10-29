@@ -47,7 +47,7 @@ function Satchel:controllerpressed(controller, button)
       self.controller = controller
     end
   elseif self.active and button == 'trigger' then
-    local controllerPosition = maf.vec3(self.layout:cursorPosition(controller))
+    local controllerPosition = maf.vec3(self.layout:getCursorPosition(controller))
     for i, kind, ix, iy in self:items() do
       local itemPosition = maf.vec3(self.transform:transformPoint(ix, iy, 0))
       if controllerPosition:distance(itemPosition) < self.itemSize / 2 then
@@ -76,7 +76,7 @@ end
 
 function Satchel:updatePosition(controller)
   local controller = self.controller
-  local x, y, z = self.layout:cursorPosition(controller)
+  local x, y, z = self.layout:getCursorPosition(controller)
   local hx, hy, hz = lovr.headset.getPosition()
   local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, x, 0, z)
   self.transform:origin()

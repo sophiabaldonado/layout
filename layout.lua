@@ -205,7 +205,7 @@ end
 ----------------
 -- Cursors
 ----------------
-function layout:cursorPosition(controller)
+function layout:getCursorPosition(controller)
   local offset = .075
   local x, y, z = controller:getPosition()
   local ox, oy, oz = lovr.math.orientationToDirection(controller:getOrientation())
@@ -214,14 +214,14 @@ end
 
 function layout:drawCursors()
   for _, controller in ipairs(self.controllers) do
-    local x, y, z = self:cursorPosition(controller)
+    local x, y, z = self:getCursorPosition(controller)
     lovr.graphics.setColor(1, 1, 1)
     lovr.graphics.cube('fill', x, y, z, self.config.cursorSize)
   end
 end
 
 function layout:getClosestHover(controller, includeLocked, includeFocused)
-  local x, y, z = self:cursorPosition(controller)
+  local x, y, z = self:getCursorPosition(controller)
   local minDistance, closestEntity = math.huge, nil
   for _, entity in ipairs(self.state.entities) do
     local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
@@ -245,6 +245,7 @@ function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
     angle = angle, ax = ax, ay = ay, az = az
   })
 
+  self:dirty()
   return self.state.entities[#self.state.entities]
 end
 
@@ -255,14 +256,7 @@ function layout:removeEntity(entity)
       break
     end
   end
-end
-
-function layout:setTransform(entity, ...)
-  entity.x, entity.y, entity.z, entity.scale, entity.angle, entity.ax, entity.ay, entity.az = ...
-end
-
-function layout:setLocked(entity, locked)
-  entity.locked = locked
+  self:dirty()
 end
 
 local transform = lovr.math.newTransform()
@@ -293,7 +287,7 @@ function layout:isHovered(entity, controller, includeLocked, includeFocused)
   transform:translate(cx, cy, cz)
   transform:rotate(-t.angle, t.ax, t.ay, t.az)
   transform:translate(-cx, -cy, -cz)
-  local x, y, z = self:cursorPosition(controller)
+  local x, y, z = self:getCursorPosition(controller)
   x, y, z = transform:transformPoint(x - t.x, y - t.y, z - t.z)
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
