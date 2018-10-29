@@ -18,7 +18,8 @@ end
 
 local defaultConfig = {
   cursorSize = .01,
-  haptics = true
+  haptics = true,
+  accents = true
 }
 
 local defaultState = {
@@ -319,6 +320,7 @@ function layout:drawEntities()
 end
 
 function layout:drawEntityUI(entity)
+  if not self.config.accents then return end
   local model = self.models[entity.kind]
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
