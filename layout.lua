@@ -49,8 +49,6 @@ function layout:init(config)
 end
 
 function layout:update(dt)
-  self:autosave()
-
   -- Update hover state
   for _, controller in ipairs(self.controllers) do
     local hover = self:getClosestHover(controller)
