@@ -32,14 +32,14 @@ local defaultState = {
 function layout:init(config)
   self.config = merge(config, defaultConfig)
   self.state = merge(self.config.state, defaultState)
-
-  self:loadModels()
-  self:refreshControllers()
-
+  
   self.focus = {}
   self.hover = {}
   self.tools = {}
   self.controllerModels = {}
+
+  self:loadModels()
+  self:refreshControllers()
 
   for _, t in ipairs({ 'drag', 'rotate', 'scale', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
     table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
