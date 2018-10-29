@@ -25,8 +25,9 @@ function lovr.load()
 
 	layout:init({
 	  state = loadFile or {},
-	  cursorSize = .03
-	  onChange = function(state) end
+	  cursorSize = .03,
+		haptics = true,
+	  onChange = function(state) end,
 	  onHover = function(entity, controller) end
 	})
 end
@@ -52,25 +53,26 @@ function lovr.draw()
 		controllerModels[controller]:draw(x, y, z, 1, angle, ax, ay, az)
   end
 
-	if edit.active == true then
-  	layout:draw()
-	end
+	layout.config.accents = edit.active
+	layout:draw()
 end
 
 function lovr.controlleradded(...)
-	if edit.active == true then
+	if edit.active then
 		layout:controlleradded(...)
 	end
 end
 
 function lovr.controllerremoved(...)
-	if edit.active == true then
+	if edit.active then
 		layout:controllerremoved(...)
 	end
 end
 
 function lovr.controllerpressed(...)
-	if edit.active == true then
+	if edit.active and button == 'menu' then
+		edit.active = false
+	elseif edit.active then
 		layout:controllerpressed(...)
 	elseif button == 'menu' then
 		edit.active = true
@@ -78,7 +80,7 @@ function lovr.controllerpressed(...)
 end
 
 function lovr.controllerreleased(...)
-	if edit.active == true then
+	if edit.active then
 		layout:controllerreleased(...)
 	end
 end
@@ -89,6 +91,5 @@ end
 
 function saveLevel(levelData)
 	local filename = os.date('%m-%d-%Y_%I%M%p')..'.json'
-	print(filename)
 	fs.write(filename, json.encode(levelData))
 end
