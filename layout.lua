@@ -32,7 +32,7 @@ local defaultState = {
 function layout:init(config)
   self.config = merge(config, defaultConfig)
   self.state = merge(self.config.state, defaultState)
-  
+
   self.focus = {}
   self.hover = {}
   self.tools = {}
