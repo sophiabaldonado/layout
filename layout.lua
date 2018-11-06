@@ -9,7 +9,7 @@ local layout = {}
 local function merge(a, b)
   for k, v in pairs(a or {}) do
     if type(v) == 'table' and type(b[k] or false) == 'table' then
-      merge(b[k], v)
+      merge(v, b[k])
     else
       b[k] = v
     end
