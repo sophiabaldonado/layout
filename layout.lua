@@ -403,6 +403,10 @@ end
 ----------------
 -- IO
 ----------------
+function layout:setState(state)
+  self.state = state
+end
+
 function layout:dirty()
   if self.config.onChange then
     self.config.onChange(self.state)
