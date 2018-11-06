@@ -1,4 +1,5 @@
 local json = require 'cjson'
+local maf = require 'maf'
 
 local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
 local dot = base:match('%.') and '.' or '/'
@@ -19,7 +20,8 @@ end
 local defaultConfig = {
   cursorSize = .01,
   haptics = true,
-  accents = true
+  accents = true,
+  inertia = true
 }
 
 local defaultState = {
@@ -49,6 +51,7 @@ function layout:init(config)
 end
 
 function layout:update(dt)
+
   -- Update hover state
   for _, controller in ipairs(self.controllers) do
     local hover = self:getClosestHover(controller)
@@ -61,6 +64,11 @@ function layout:update(dt)
       self.hover[controller] = hover
       self:eachTool('hover', entity, hovered, controller)
     end
+  end
+
+  -- Apply inertia
+  for _, entity in ipairs(self.state.entities) do
+    self:applyInertia(entity, dt)
   end
 
   -- Use continuous tools
@@ -254,7 +262,8 @@ function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
     kind = kind,
     x = x, y = y, z = z,
     scale = scale,
-    angle = angle, ax = ax, ay = ay, az = az
+    angle = angle, ax = ax, ay = ay, az = az,
+    vx = 0, vy = 0, vz = 0, vs = 0, vax = 0, vay = 0, vaz = 0
   })
 
   self:dirty()
@@ -312,6 +321,37 @@ function layout:isFocused(entity, controller)
   end
 
   return false
+end
+
+local q = maf.quat()
+local rot = maf.quat()
+local v = maf.vec3()
+function layout:applyInertia(entity, dt)
+  if not self.config.inertia then return end
+
+  entity.x = entity.x + entity.vx * dt
+  entity.y = entity.y + entity.vy * dt
+  entity.z = entity.z + entity.vz * dt
+  entity.scale = entity.scale + entity.vs * dt
+
+  v:set(entity.vax, entity.vay, entity.vaz)
+  local angle = v:length() * dt
+  local axis = v:normalize()
+  rot:angleAxis(angle, axis)
+  q:angleAxis(entity.angle, entity.ax, entity.ay, entity.az):mul(rot)
+  entity.angle, entity.ax, entity.ay, entity.az = q:getAngleAxis()
+
+  local function lerp(x, y, t) return x + (y - x) * t end
+  local function decay(x, t) return lerp(x, 0, 1 - math.exp(-t * dt)) end
+
+  local rate = 5
+  entity.vx = decay(entity.vx, rate)
+  entity.vy = decay(entity.vy, rate)
+  entity.vz = decay(entity.vz, rate)
+  entity.vs = decay(entity.vs, rate)
+  entity.vax = decay(entity.vax, rate)
+  entity.vay = decay(entity.vay, rate)
+  entity.vaz = decay(entity.vaz, rate)
 end
 
 function layout:drawEntities()
