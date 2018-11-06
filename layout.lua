@@ -17,11 +17,23 @@ local function merge(a, b)
   return b
 end
 
+local function getTool(name) return require(base .. 'tools' .. dot .. name) end
+
 local defaultConfig = {
   cursorSize = .01,
   haptics = true,
   accents = true,
-  inertia = true
+  inertia = true,
+  tools = {
+    drag = getTool('drag'),
+    rotate = getTool('rotate'),
+    scale = getTool('scale'),
+    satchel = getTool('satchel'),
+    clear = getTool('clear'),
+    delete = getTool('delete'),
+    copy = getTool('copy'),
+    lock = getTool('lock')
+  }
 }
 
 local defaultState = {
@@ -43,8 +55,8 @@ function layout:init(config)
   self:loadModels()
   self:refreshControllers()
 
-  for _, t in ipairs({ 'drag', 'rotate', 'scale', 'satchel', 'clear', 'delete', 'copy', 'lock' }) do
-    table.insert(self.tools, setmetatable({ layout = self }, { __index = require(base .. 'tools' .. dot .. t) }))
+  for name, tool in pairs(self.config.tools) do
+    table.insert(self.tools, setmetatable({ layout = self }, { __index = tool }))
   end
 
   self:eachTool('init')
