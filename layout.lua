@@ -356,7 +356,7 @@ function layout:applyInertia(entity, dt)
   local function lerp(x, y, t) return x + (y - x) * t end
   local function decay(x, t) return lerp(x, 0, 1 - math.exp(-t * dt)) end
 
-  local rate = 5
+  local rate = 6
   entity.vx = decay(entity.vx, rate)
   entity.vy = decay(entity.vy, rate)
   entity.vz = decay(entity.vz, rate)

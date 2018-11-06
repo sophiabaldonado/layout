@@ -1,5 +1,7 @@
 -- What a drag
 
+local maf = require 'maf'
+
 local Drag = {}
 
 Drag.name = 'Drag'
@@ -20,6 +22,7 @@ function Drag:start(controller, entity)
   self.drags[controller] = {
     entity = entity,
     offset = { x = entity.x - x, y = entity.y - y, z = entity.z - z },
+    velocity = { x = 0, y = 0, z = 0 },
     lock = { x = false, y = false, z = false },
     bzz = 0
   }
@@ -38,6 +41,7 @@ function Drag:use(controller, entity, dt)
   local lx, ly, lz = not locked or drag.lock.x, not locked or drag.lock.y, not locked or drag.lock.z
   dx, dy, dz = lx and dx or 0, ly and dy or 0, lz and dz or 0 -- idk if this works
   entity.x, entity.y, entity.z = entity.x + dx, entity.y + dy, entity.z + dz
+  drag.velocity.x, drag.velocity.y, drag.velocity.z = dx / dt, dy / dt, dz / dt
   self.layout:dirty()
 
   -- Bzz every .1m
@@ -49,15 +53,10 @@ function Drag:use(controller, entity, dt)
 end
 
 function Drag:stop(controller, entity)
-
-  -- TODO duplicated with above
-  local drag = self.drags[controller]
-  local entity = drag.entity
-  local x, y, z = self.layout:getCursorPosition(controller)
-  x, y, z = x + drag.offset.x, y + drag.offset.y, z + drag.offset.z
-  local dx, dy, dz = x - entity.x, y - entity.y, z - entity.z
-  local vx, vy, vz = dx * 100, dy * 100, dz * 100 -- idk
-  entity.vx, entity.vy, entity.vz = vx, vy, vz
+  local v = self.drags[controller].velocity
+  if math.sqrt(maf.vec3(v.x, v.y, v.z):length()) > .5 then
+    entity.vx, entity.vy, entity.vz = v.x, v.y, v.z
+  end
 
   self.drags[controller] = nil
 end
