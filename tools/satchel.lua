@@ -4,6 +4,7 @@ local Satchel = {}
 
 Satchel.name = 'Satchel'
 Satchel.itemSize = .09
+Satchel.button = 'menu'
 
 function Satchel:init()
   self.active = false
@@ -38,7 +39,7 @@ function Satchel:draw()
 end
 
 function Satchel:controllerpressed(controller, button)
-  if button == 'menu' then
+  if button == self.button then
     if self.active then
       self.active = false
       self.controller = nil
@@ -68,7 +69,7 @@ function Satchel:controllerpressed(controller, button)
 end
 
 function Satchel:controllerreleased(controller, button)
-  if button == 'menu' and controller == self.controller then
+  if button == self.button and controller == self.controller then
     self:updatePosition()
     self.controller = nil
   end
