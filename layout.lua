@@ -56,7 +56,21 @@ function layout:init(config)
   self:refreshControllers()
 
   for name, tool in pairs(self.config.tools) do
-    table.insert(self.tools, setmetatable({ layout = self }, { __index = tool }))
+    local t = setmetatable({ layout = self }, { __index = tool })
+
+    -- Load tool icon
+    if t.icon and type(t.icon) == 'string' then
+      local filenames = { t.icon, base .. 'resources' .. dot .. t.icon }
+
+      t.icon = nil
+      for _, file in ipairs(filenames) do
+        if lovr.filesystem.isFile(file) then
+          t.icon = lovr.graphics.newTexture(file)
+        end
+      end
+    end
+
+    table.insert(self.tools, t)
   end
 
   self:eachTool('init')
@@ -95,6 +109,7 @@ function layout:draw()
   self:drawControllers()
   self:drawCursors()
   self:drawEntities()
+  self:drawToolUI()
   self:eachTool('draw')
 end
 
@@ -443,6 +458,50 @@ end
 function layout:eachTool(action, ...)
   for _, tool in ipairs(self.tools) do
     if tool[action] then tool[action](tool, ...) end
+  end
+end
+
+function layout:drawToolUI()
+  local offsets = { up = { 0, 1 }, down = { 0, -1 }, left = { -1, 0 }, right = { 1, 0 } }
+  local haligns = { up = 'center', down = 'center', left = 'right', right = 'left' }
+  local valigns = { up = 'bottom', down = 'top', left = 'middle', right = 'middle' }
+
+  lovr.graphics.setColor(1, 1, 1)
+  for _, tool in ipairs(self.tools) do
+    if tool.icon and tool.button and offsets[tool.button] then
+      local offset = offsets[tool.button]
+
+      -- Pls add lovr.graphics.plane(texture, ...) overload
+      self.toolMaterial = self.toolMaterial or lovr.graphics.newMaterial()
+      self.toolMaterial:setTexture(tool.icon)
+
+      local iconSize = .03
+      for _, controller in ipairs(self.controllers) do
+        local entity = self:getClosestHover(controller, tool.lockpick, tool.twoHanded)
+        local context = entity and 'hover' or 'default'
+
+        if tool.context == context then
+          local x, y, z, angle, ax, ay, az = controller:getPose()
+          lovr.graphics.push()
+          lovr.graphics.transform(x, y, z)
+          lovr.graphics.rotate(angle, ax, ay, az)
+          lovr.graphics.rotate(-math.pi / 2, 1, 0, 0) -- Make plane parallel to touchpad
+          if lovr.headset.getType() == 'vive' then
+            lovr.graphics.translate(0, -.048, 0)
+            lovr.graphics.rotate(.1, 1, 0, 0)
+          end
+
+          if controller:isTouched('touchpad') and self:getTouchpadDirection(controller) == tool.button then
+            local halign = haligns[tool.button]
+            local valign = valigns[tool.button]
+            lovr.graphics.print(tool.name, offset[1] * .04, offset[2] * .04, .01, iconSize, 0, 0, 0, 0, nil, halign, valign)
+          end
+
+          lovr.graphics.plane(self.toolMaterial, offset[1] * .02, offset[2] * .02, .01, iconSize, iconSize)
+          lovr.graphics.pop()
+        end
+      end
+    end
   end
 end
 
