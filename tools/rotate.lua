@@ -29,9 +29,12 @@ local rotation = maf.quat()
 function Rotate:use(controller, entity, dt)
   self.entity = entity
   self.position:set(self.layout:getCursorPosition(controller))
-  self.position:sub(maf.vec3(entity.x, entity.y, entity.z))
-  self.axis:set(self.lastPosition:normalize()):cross(self.position:normalize()):normalize()
-  local angle = math.acos(self.position:dot(self.lastPosition))
+
+  local v1 = maf.vec3(self.position.x, self.position.y, self.position.z):sub(maf.vec3(entity.x, entity.y, entity.z)):normalize()
+  local v2 = maf.vec3(self.lastPosition.x, self.lastPosition.y, self.lastPosition.z):sub(maf.vec3(entity.x, entity.y, entity.z)):normalize()
+
+  self.axis:set(v2):cross(v1):normalize()
+  local angle = math.acos(v2:dot(v1))
   orientation:angleAxis(entity.angle, entity.ax, entity.ay, entity.az)
   rotation:angleAxis(angle, self.axis)
   rotation:mul(orientation)
