@@ -128,7 +128,7 @@ function layout:controllerpressed(controller, rawButton)
         elseif otherFocus.tool.stop then
           otherFocus.tool:stop(controller, otherFocus.entity)
         end
-      elseif not otherController:isDown(rawButton) or otherButton ~= button then
+      elseif not otherController or not otherController:isDown(rawButton) or otherButton ~= button then
         return
       end
     elseif self.focus[controller] and self.focus[controller].tool.twoHanded then
