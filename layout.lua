@@ -384,11 +384,16 @@ end
 
 function layout:drawEntityUI(entity)
   if not self.config.accents then return end
+
+  -- TODO need easy way to tell if entity is hovered
+  local hovered = false
+  for k, v in pairs(self.hover) do if v == entity then hovered = true break end end
+
   local model = self.models[entity.kind]
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
   local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
-  local r, g, b, a = 1, 1, 1, .392 * ((self:isHovered(entity) or self:isFocused(entity)) and 2 or 1)
+  local r, g, b, a = 1, 1, 1, .3 * (self:isFocused(entity) and 3 or (hovered and 2 or 1))
 
   lovr.graphics.push()
   lovr.graphics.translate(entity.x, entity.y, entity.z)
