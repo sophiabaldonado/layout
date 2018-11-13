@@ -6,6 +6,12 @@ local dot = base:match('%.') and '.' or '/'
 
 local layout = {}
 
+local function outBack(t, b, c)
+  local s = 1.70158
+  t = t - 1
+  return c * (t * t * ((s + 1) * t + s) + 1) + b
+end
+
 local function merge(a, b)
   for k, v in pairs(a or {}) do
     if type(v) == 'table' and type(b[k] or false) == 'table' then
@@ -50,6 +56,7 @@ function layout:init(config)
   self.focus = {}
   self.hover = {}
   self.tools = {}
+  self.toolHoverTimes = {}
   self.controllerModels = {}
 
   self:loadModels()
@@ -103,6 +110,29 @@ function layout:update(dt)
   end
 
   self:eachTool('update', dt)
+
+  local directions = { up = true, down = true, right = true, left = true }
+  for _, tool in ipairs(self.tools) do
+    if tool.button then
+      for _, controller in ipairs(self.controllers) do
+        local entity = self:getClosestHover(controller, tool.lockpick, tool.twoHanded)
+        local context = entity and 'hover' or 'default'
+
+        if tool.context == context then
+          local isTouched = false
+
+          if directions[tool.button] then
+            isTouched = controller:isTouched('touchpad') and self:getTouchpadDirection(controller) == tool.button
+          else
+            isTouched = controller:isTouched(tool.button)
+          end
+
+          self.toolHoverTimes[controller] = self.toolHoverTimes[controller] or {}
+          self.toolHoverTimes[controller][tool] = isTouched and ((self.toolHoverTimes[controller][tool] or 0) + dt) or 0
+        end
+      end
+    end
+  end
 end
 
 function layout:draw()
@@ -491,14 +521,23 @@ function layout:drawToolUI()
             lovr.graphics.rotate(.1, 1, 0, 0)
           end
 
-          if controller:isTouched('touchpad') and self:getTouchpadDirection(controller) == tool.button then
+          local hoverTimeDelay = .5 -- TODO config/constant
+          local hoverTime = self.toolHoverTimes[controller][tool]
+          if hoverTime > hoverTimeDelay then
             local halign = haligns[tool.button]
             local valign = valigns[tool.button]
-            lovr.graphics.print(tool.name, offset[1] * .04, offset[2] * .04, .01, iconSize, 0, 0, 0, 0, nil, halign, valign)
+            lovr.graphics.setColor(1, 1, 1, math.min((hoverTime - hoverTimeDelay) * 6, 1))
+            lovr.graphics.print(tool.name, offset[1] * .04, offset[2] * .04, .01, iconSize * .75, 0, 0, 0, 0, nil, halign, valign)
+            lovr.graphics.setColor(1, 1, 1)
           end
 
-          lovr.graphics.plane(self.toolMaterial, offset[1] * .02, offset[2] * .02, .01, iconSize, iconSize)
+          lovr.graphics.setDepthTest('lequal', false)
+
+          local iconScale = 1 + outBack(math.min(hoverTime * 5, 1), 0, 1) * .5
+          lovr.graphics.plane(self.toolMaterial, offset[1] * .02, offset[2] * .02, .01, iconSize * iconScale, iconSize * iconScale)
           lovr.graphics.pop()
+
+          lovr.graphics.setDepthTest('lequal', true)
         end
       end
     end
