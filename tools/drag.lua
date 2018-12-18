@@ -1,7 +1,5 @@
 -- What a drag
 
-local maf = require 'maf'
-
 local Drag = {}
 
 Drag.name = 'Drag'
@@ -54,7 +52,7 @@ end
 
 function Drag:stop(controller, entity)
   local v = self.drags[controller].velocity
-  if math.sqrt(maf.vec3(v.x, v.y, v.z):length()) > .75 then
+  if math.sqrt(self.layout.pool:vec3(v.x, v.y, v.z):length()) > .75 then
     entity.vx, entity.vy, entity.vz = v.x, v.y, v.z
   end
 

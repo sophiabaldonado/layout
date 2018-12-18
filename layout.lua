@@ -1,5 +1,4 @@
 local json = require 'cjson'
-local maf = require 'maf'
 
 local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
 local dot = base:match('%.') and '.' or '/'
@@ -53,6 +52,7 @@ function layout:init(config)
   self.config = merge(config, defaultConfig)
   self.state = merge(self.config.state, defaultState)
 
+  self.pool = lovr.math.newPool(16384)
   self.focus = {}
   self.hover = {}
   self.tools = {}
@@ -133,6 +133,8 @@ function layout:update(dt)
       end
     end
   end
+
+  self:drain()
 end
 
 function layout:draw()
@@ -141,6 +143,10 @@ function layout:draw()
   self:drawEntities()
   self:drawToolUI()
   self:eachTool('draw')
+end
+
+function layout:drain()
+  self.pool:drain()
 end
 
 ----------------
@@ -337,7 +343,6 @@ function layout:removeEntity(entity)
   self:dirty()
 end
 
-local transform = lovr.math.newTransform()
 function layout:isHovered(entity, controller, includeLocked, includeFocused)
 
   -- Currently if a controller is focusing on an entity then it can't hover over other entities.
@@ -360,7 +365,7 @@ function layout:isHovered(entity, controller, includeLocked, includeFocused)
   minx, maxx, miny, maxy, minz, maxz = addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, t.scale)
   local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
   minx, maxx, miny, maxy, minz, maxz = t.x + minx * t.scale, t.x + maxx * t.scale, t.y + miny * t.scale, t.y + maxy * t.scale, t.z + minz * t.scale, t.z + maxz * t.scale
-  transform:origin()
+  local transform = self.pool:mat4()
   transform:translate(t.x, t.y, t.z)
   transform:translate(cx, cy, cz)
   transform:rotate(-t.angle, t.ax, t.ay, t.az)
@@ -380,9 +385,6 @@ function layout:isFocused(entity, controller)
   return false
 end
 
-local q = maf.quat()
-local rot = maf.quat()
-local v = maf.vec3()
 function layout:applyInertia(entity, dt)
   if not self.config.inertia then return end
 
@@ -391,12 +393,12 @@ function layout:applyInertia(entity, dt)
   entity.z = entity.z + entity.vz * dt
   entity.scale = entity.scale + entity.vs * dt
 
-  v:set(entity.vax, entity.vay, entity.vaz)
-  local angle = v:length() * dt
-  local axis = v:normalize()
-  rot:angleAxis(angle, axis)
-  q:angleAxis(entity.angle, entity.ax, entity.ay, entity.az):mul(rot)
-  entity.angle, entity.ax, entity.ay, entity.az = q:getAngleAxis()
+  local angularVelocity = self.pool:vec3(entity.vax, entity.vay, entity.vaz)
+  local angle = angularVelocity:length() * dt
+  local axis = angularVelocity:normalize()
+  local rot = self.pool:quat(angle, axis)
+  local q = self.pool:quat(entity.angle, entity.ax, entity.ay, entity.az) * rot
+  entity.angle, entity.ax, entity.ay, entity.az = q:unpack()
 
   local function lerp(x, y, t) return x + (y - x) * t end
   local function decay(x, t) return lerp(x, 0, 1 - math.exp(-t * dt)) end

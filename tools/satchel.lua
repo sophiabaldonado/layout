@@ -1,5 +1,3 @@
-local maf = require 'maf'
-
 local Satchel = {}
 
 Satchel.name = 'Satchel'
@@ -9,7 +7,7 @@ Satchel.button = 'menu'
 function Satchel:init()
   self.active = false
   self.controller = nil
-  self.transform = lovr.math.newTransform()
+  self.transform = self.layout.pool:mat4()
   self.yaw = 0
 end
 
@@ -48,17 +46,17 @@ function Satchel:controllerpressed(controller, button)
       self.controller = controller
     end
   elseif self.active and button == 'trigger' then
-    local controllerPosition = maf.vec3(self.layout:getCursorPosition(controller))
+    local controllerPosition = self.layout.pool:vec3(self.layout:getCursorPosition(controller))
     for i, kind, ix, iy in self:items() do
-      local itemPosition = maf.vec3(self.transform:transformPoint(ix, iy, 0))
-      if controllerPosition:distance(itemPosition) < self.itemSize / 2 then
+      local itemPosition = self.layout.pool:vec3(self.transform:transformPoint(ix, iy, 0))
+      if #(controllerPosition - itemPosition) < self.itemSize / 2 then
         local model = self.layout.models[kind]
         local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
         local width, height, depth = maxx - minx, maxy - miny, maxz - minz
         local scale = self.itemSize / math.max(width, height, depth)
-        local origin = maf.vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2):scale(scale)
+        local origin = self.layout.pool:vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2) * scale
 
-        local x, y, z = itemPosition:sub(origin):unpack()
+        local x, y, z = (itemPosition - origin):unpack()
         local angle, ax, ay, az = -self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
 
         self.layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
@@ -80,7 +78,7 @@ function Satchel:updatePosition(controller)
   local x, y, z = self.layout:getCursorPosition(controller)
   local hx, hy, hz = lovr.headset.getPosition()
   local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, x, 0, z)
-  self.transform:origin()
+  self.transform:identity()
   self.transform:translate(x, y, z)
   self.transform:rotate(angle, ax, ay, az)
   self.yaw = angle
