@@ -1,5 +1,8 @@
 -- Makes my head spin
 
+--[[
+local maf = require 'maf'
+
 local Rotate = {}
 
 Rotate.name = 'Rotate'
@@ -40,4 +43,4 @@ function Rotate:use(controller, entity, dt)
   self.layout:dirty()
 end
 
-return Rotate
+return Rotate]]
