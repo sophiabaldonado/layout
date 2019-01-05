@@ -7,7 +7,7 @@ Satchel.button = 'menu'
 function Satchel:init()
   self.active = false
   self.controller = nil
-  self.transform = self.layout.pool:mat4()
+  self.transform = lovr.math.mat4()
   self.yaw = 0
 end
 
@@ -46,15 +46,15 @@ function Satchel:controllerpressed(controller, button)
       self.controller = controller
     end
   elseif self.active and button == 'trigger' then
-    local controllerPosition = self.layout.pool:vec3(self.layout:getCursorPosition(controller))
+    local controllerPosition = lovr.math.vec3(self.layout:getCursorPosition(controller))
     for i, kind, ix, iy in self:items() do
-      local itemPosition = self.layout.pool:vec3(self.transform:transformPoint(ix, iy, 0))
-      if #(controllerPosition - itemPosition) < self.itemSize / 2 then
+      local itemPosition = lovr.math.vec3(self.transform:transformPoint(ix, iy, 0))
+      if (controllerPosition - itemPosition):length() < self.itemSize / 2 then
         local model = self.layout.models[kind]
         local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
         local width, height, depth = maxx - minx, maxy - miny, maxz - minz
         local scale = self.itemSize / math.max(width, height, depth)
-        local origin = self.layout.pool:vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2) * scale
+        local origin = lovr.math.vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2) * scale
 
         local x, y, z = (itemPosition - origin):unpack()
         local angle, ax, ay, az = -self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
