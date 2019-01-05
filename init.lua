@@ -1,7 +1,7 @@
 local json = require 'cjson'
 
-local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
-local dot = base:match('%.') and '.' or '/'
+local base = (...):match('^(.*)[%./]+$') or ''
+base = base:gsub('%.', '/')
 
 local layout = {}
 
@@ -11,34 +11,11 @@ local function outBack(t, b, c)
   return c * (t * t * ((s + 1) * t + s) + 1) + b
 end
 
-local function merge(a, b)
-  for k, v in pairs(a or {}) do
-    if type(v) == 'table' and type(b[k] or false) == 'table' then
-      merge(v, b[k])
-    else
-      b[k] = v
-    end
-  end
-  return b
-end
-
-local function getTool(name) return require(base .. 'tools' .. dot .. name) end
-
 local defaultConfig = {
   cursorSize = .01,
   haptics = true,
   accents = true,
-  inertia = true,
-  tools = {
-    drag = getTool('drag'),
-    rotate = getTool('rotate'),
-    scale = getTool('scale'),
-    satchel = getTool('satchel'),
-    clear = getTool('clear'),
-    delete = getTool('delete'),
-    copy = getTool('copy'),
-    lock = getTool('lock')
-  }
+  inertia = true
 }
 
 local defaultState = {
@@ -49,35 +26,16 @@ local defaultState = {
 -- Callbacks
 ----------------
 function layout:init(config)
-  self.config = merge(config, defaultConfig)
-  self.state = merge(self.config.state, defaultState)
+  self.config = config or {}
 
   self.focus = {}
   self.hover = {}
-  self.tools = {}
   self.toolHoverTimes = {}
   self.controllerModels = {}
 
+  self:loadTools()
   self:loadModels()
   self:refreshControllers()
-
-  for name, tool in pairs(self.config.tools) do
-    local t = setmetatable({ layout = self }, { __index = tool })
-
-    -- Load tool icon
-    if t.icon and type(t.icon) == 'string' then
-      local filenames = { t.icon, base .. 'resources' .. dot .. t.icon }
-
-      t.icon = nil
-      for _, file in ipairs(filenames) do
-        if lovr.filesystem.isFile(file) then
-          t.icon = lovr.graphics.newTexture(file)
-        end
-      end
-    end
-
-    table.insert(self.tools, t)
-  end
 
   self:eachTool('init')
 end
@@ -336,7 +294,6 @@ function layout:removeEntity(entity)
   self:dirty()
 end
 
-local transform = lovr.math.newTransform()
 function layout:isHovered(entity, controller, includeLocked, includeFocused)
 
   -- Currently if a controller is focusing on an entity then it can't hover over other entities.
@@ -359,7 +316,7 @@ function layout:isHovered(entity, controller, includeLocked, includeFocused)
   minx, maxx, miny, maxy, minz, maxz = addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, t.scale)
   local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
   minx, maxx, miny, maxy, minz, maxz = t.x + minx * t.scale, t.x + maxx * t.scale, t.y + miny * t.scale, t.y + maxy * t.scale, t.z + minz * t.scale, t.z + maxz * t.scale
-  transform:origin()
+  local transform = lovr.math.mat4()
   transform:translate(t.x, t.y, t.z)
   transform:translate(cx, cy, cz)
   transform:rotate(-t.angle, t.ax, t.ay, t.az)
@@ -449,10 +406,6 @@ end
 ----------------
 -- IO
 ----------------
-function layout:setState(state)
-  self.state = state
-end
-
 function layout:dirty()
   if self.config.onChange then
     self.config.onChange(self.state)
@@ -481,6 +434,37 @@ end
 ----------------
 -- Tools
 ----------------
+function layout:loadTools()
+  local function addTool(tool)
+    table.insert(self.tools, setmetatable({ layout = self }, { __index = tool }))
+  end
+
+  local function loadTool(path)
+    local isTool = type(path) == 'table'
+    local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and path:match('%.lua$')
+    local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
+
+    if isTool then addTool(path)
+    elseif isFile then loadTool(lovr.filesystem.load(path)())
+    elseif isFolder then
+      for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
+        loadTool(path .. '/' .. file)
+      end
+    end
+  end
+
+  self.tools = {}
+  self.config.tools = self.config.tools or {}
+
+  if lovr.filesystem.isDirectory(base .. '/tools') then
+    table.insert(self.config.tools, 1, base .. '/tools')
+  end
+
+  for i, path in ipairs(self.config.tools) do
+    loadTool(path)
+  end
+end
+
 function layout:eachTool(action, ...)
   for _, tool in ipairs(self.tools) do
     if tool[action] then tool[action](tool, ...) end
