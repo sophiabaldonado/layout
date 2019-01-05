@@ -6,7 +6,6 @@ Scale.name = 'Scale'
 Scale.continuous = true
 Scale.context = 'hover'
 Scale.button = 'trigger'
-Scale.twoHanded = true
 
 function Scale:start(controller, entity)
   self.bzz = 0

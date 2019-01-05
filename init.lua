@@ -72,7 +72,7 @@ function layout:update(dt)
   for _, tool in ipairs(self.tools) do
     if tool.button then
       for _, controller in ipairs(self.controllers) do
-        local entity = self:getClosestHover(controller, tool.lockpick, tool.twoHanded)
+        local entity = self:getClosestHover(controller, tool.lockpick)
         local context = entity and 'hover' or 'default'
 
         if tool.context == context then
@@ -104,38 +104,15 @@ end
 -- Controllers
 ----------------
 function layout:controllerpressed(controller, rawButton)
-  local otherController = self:getOtherController(controller)
   local button = rawButton == 'touchpad' and self:getTouchpadDirection(controller) or rawButton
 
   -- Tries to use a tool.  This or parts of it should be extracted into in the 'tools' section below
   local function useTool(tool)
     if tool.button ~= button then return end
 
-    local entity = self:getClosestHover(controller, tool.lockpick, tool.twoHanded)
+    local entity = self:getClosestHover(controller, tool.lockpick)
     local context = entity and 'hover' or 'default'
     if tool.context ~= context then return end
-
-    -- If I'm a two-handed tool, I can only be used if:
-    --   * Another continuous tool is being used on the same entity that I'm hovering over,
-    --     AND that tool has the same button as me.
-    --   * No tool is being used on the other controller but it's hovering over the same entity
-    --     as me AND it's holding down my button
-    if tool.twoHanded then
-      local otherButton = rawButton == 'touchpad' and self:getTouchpadDirection(otherController) or rawButton
-      local otherFocus = self.focus[otherController]
-
-      if otherFocus then
-        if otherFocus.tool.button ~= button or otherFocus.entity ~= entity then
-          return
-        elseif otherFocus.tool.stop then
-          otherFocus.tool:stop(controller, otherFocus.entity)
-        end
-      elseif not otherController or not otherController:isDown(rawButton) or otherButton ~= button then
-        return
-      end
-    elseif self.focus[controller] and self.focus[controller].tool.twoHanded then
-      return -- two handed tools have priority
-    end
 
     -- A continuous tool calls start once, then calls use in update
     -- Non continuous tools just call use once when the button is pressed
@@ -143,11 +120,6 @@ function layout:controllerpressed(controller, rawButton)
     if tool.continuous then
       self.focus[controller] = { tool = tool, entity = entity }
       self:vibrate(controller, .003)
-
-      if tool.twoHanded then
-        self.focus[otherController] = self.focus[controller]
-        self:vibrate(otherController, .003)
-      end
 
       if tool.start then tool:start(controller, entity) end
     else
@@ -179,11 +151,6 @@ function layout:controllerreleased(controller, rawButton)
     if tool.button == button then
       if tool.stop then tool:stop(controller, self.focus[controller].entity) end
       self.focus[controller] = nil
-
-      if tool.twoHanded then
-        self.focus[self:getOtherController(controller)] = nil
-        -- FIXME check if we can re-enable a one-handed tool here, maybe use a stack
-      end
     end
   end
 end
@@ -487,7 +454,7 @@ function layout:drawToolUI()
 
       local iconSize = .03
       for _, controller in ipairs(self.controllers) do
-        local entity = self:getClosestHover(controller, tool.lockpick, tool.twoHanded)
+        local entity = self:getClosestHover(controller, tool.lockpick)
         local context = entity and 'hover' or 'default'
 
         if tool.context == context then
