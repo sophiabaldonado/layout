@@ -11,22 +11,16 @@ local function outBack(t, b, c)
   return c * (t * t * ((s + 1) * t + s) + 1) + b
 end
 
-local defaultConfig = {
-  cursorSize = .01,
-  haptics = true,
-  accents = true,
-  inertia = true
-}
-
-local defaultState = {
-  entities = {}
-}
-
 ----------------
 -- Callbacks
 ----------------
 function layout:init(config)
   self.config = config or {}
+  self.config.cursorSize = self.config.cursorSize or .01
+  self.config.haptics = type(self.config.haptics) == 'nil' and true or self.config.haptics
+  self.config.inertia = type(self.config.inertia) == 'nil' and true or self.config.inertia
+
+  self.state = { entities = {} }
 
   self.focus = {}
   self.hover = {}
