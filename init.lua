@@ -394,28 +394,60 @@ function layout:loadModels()
     end
   end
 
+  local function addModel(model, key)
+    self.models[key] = model
+    table.insert(self.models, key)
+  end
+
+  local function loadModel(path, key)
+    key = key or ('Model ' .. #self.models)
+
+    local isModel = tostring(path) == 'Model'
+    local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and (path:match('%.obj$') or path:match('%.gltf$'))
+    local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
+
+    if isModel then addModel(path, key)
+    elseif isFile then loadModel(lovr.filesystem.load(path)(), key)
+    elseif isFolder then
+      for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
+        loadModel(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
+      end
+    end
+  end
+
   self.models = {}
-  halp('models')
+  self.config.models = self.config.models or {}
+
+  if lovr.filesystem.isDirectory(base .. '/models') then
+    table.insert(self.config.models, 1, base .. '/models')
+  end
+
+  for i, path in ipairs(self.config.models) do
+    loadModel(path)
+  end
 end
 
 ----------------
 -- Tools
 ----------------
 function layout:loadTools()
-  local function addTool(tool)
-    table.insert(self.tools, setmetatable({ layout = self }, { __index = tool }))
+  local function addTool(tool, key)
+    self.tools[key] = setmetatable({ layout = self }, { __index = tool })
+    table.insert(self.tools, key)
   end
 
-  local function loadTool(path)
+  local function loadTool(path, key)
+    key = key or ('Tool ' .. #self.tools)
+
     local isTool = type(path) == 'table'
     local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and path:match('%.lua$')
     local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
 
-    if isTool then addTool(path)
-    elseif isFile then loadTool(lovr.filesystem.load(path)())
+    if isTool then addTool(path, key)
+    elseif isFile then loadTool(lovr.filesystem.load(path)(), key)
     elseif isFolder then
       for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-        loadTool(path .. '/' .. file)
+        loadTool(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
       end
     end
   end
@@ -428,7 +460,7 @@ function layout:loadTools()
   end
 
   for i, path in ipairs(self.config.tools) do
-    loadTool(path)
+    loadTool(path, '')
   end
 end
 
