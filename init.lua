@@ -25,7 +25,6 @@ function layout:init(config)
   self.focus = {}
   self.hover = {}
   self.toolHoverTimes = {}
-  self.controllerModels = {}
 
   self:loadTools()
   self:loadModels()
@@ -87,7 +86,6 @@ function layout:update(dt)
 end
 
 function layout:draw()
-  self:drawControllers()
   self:drawCursors()
   self:drawEntities()
   self:drawToolUI()
@@ -168,17 +166,6 @@ function layout:refreshControllers()
   self.controllers = lovr.headset.getControllers()
   for i, controller in ipairs(self.controllers) do
     self.controllers[controller] = self.controllers[3 - i]
-    self.controllerModels[controller] = controller:newModel()
-  end
-end
-
-function layout:drawControllers()
-  lovr.graphics.setColor(1, 1, 1)
-  for i, controller in ipairs(self.controllers) do
-    if self.controllerModels[controller] then
-      local x, y, z, angle, ax, ay, az = controller:getPose()
-      self.controllerModels[controller]:draw(x, y, z, 1, angle, ax, ay, az)
-    end
   end
 end
 
