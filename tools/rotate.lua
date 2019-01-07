@@ -1,8 +1,5 @@
 -- Makes my head spin
 
---[[
-local maf = require 'maf'
-
 local Rotate = {}
 
 Rotate.name = 'Rotate'
@@ -11,7 +8,7 @@ Rotate.context = 'hover'
 Rotate.button = 'grip'
 
 function Rotate:init()
-  self.lastPosition = self.layout.pool:vec3()
+  self.lastPosition = lovr.math.vec3()
   self.bzz = 0
 end
 
@@ -21,17 +18,17 @@ end
 
 function Rotate:use(controller, entity, dt)
   self.entity = entity
-  local controllerPosition = self.layout.pool:vec3(self.layout:getCursorPosition(controller))
-  local entityPosition = self.layout.pool:vec3(entity.x, entity.y, entity.z)
+  local controllerPosition = lovr.math.vec3(self.layout:getCursorPosition(controller))
+  local entityPosition = lovr.math.vec3(entity.x, entity.y, entity.z)
 
   local v1 = controllerPosition - entityPosition
   local v2 = self.lastPosition - entityPosition
   local axis = v2:cross(v1):normalize()
   local angle = math.acos(v2:dot(v1))
 
-  local orientation = self.layout.pool:quat(entity.angle, entity.ax, entity.ay, entity.az)
-  local rotation = self.layout.pool:quat(angle, axis)
-  entity.angle, entity.ax, entity.ay, entity.az = (orientation * rotation):unpack()
+  local orientation = lovr.math.quat(entity.angle, entity.ax, entity.ay, entity.az)
+  local rotation = lovr.math.quat(angle, axis)
+  entity.angle, entity.ax, entity.ay, entity.az = orientation:mul(rotation):unpack()
 
   self.bzz = self.bzz + angle
   if self.bzz >= .1 then
@@ -43,4 +40,4 @@ function Rotate:use(controller, entity, dt)
   self.layout:dirty()
 end
 
-return Rotate]]
+return Rotate
