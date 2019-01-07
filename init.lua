@@ -361,20 +361,6 @@ function layout:dirty()
 end
 
 function layout:loadModels()
-  local function halp(path)
-    for i, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-      if not file:match('^%.') then
-        local filename = path .. '/' .. file
-        if lovr.filesystem.isDirectory(filename) then
-          halp(filename)
-        elseif file:match('%.obj$') or filename:match('%.gltf$') then
-          self.models[filename] = lovr.graphics.newModel(filename)
-          table.insert(self.models, filename)
-        end
-      end
-    end
-  end
-
   local function addModel(model, key)
     self.models[key] = model
     table.insert(self.models, key)
