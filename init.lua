@@ -28,6 +28,7 @@ function layout:init(config)
 
   self:loadTools()
   self:loadModels()
+  self:loadAccents()
   self:refreshControllers()
 
   self:eachTool('init')
@@ -88,6 +89,7 @@ end
 function layout:draw()
   self:drawCursors()
   self:drawEntities()
+  self:drawAccents()
   self:drawToolUI()
   self:eachTool('draw')
 end
@@ -324,31 +326,18 @@ function layout:drawEntities()
     lovr.graphics.setColor(1, 1, 1)
     model:draw(entity.x, entity.y, entity.z, entity.scale)
     lovr.graphics.pop()
-    self:drawEntityUI(entity)
   end
 end
 
-function layout:drawEntityUI(entity)
-  if not self.config.accents then return end
-
-  -- TODO need easy way to tell if entity is hovered
-  local hovered = false
-  for k, v in pairs(self.hover) do if v == entity then hovered = true break end end
-
-  local model = self.models[entity.kind]
-  local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-  local w, h, d = (maxx - minx) * entity.scale, (maxy - miny) * entity.scale, (maxz - minz) * entity.scale
-  local cx, cy, cz = (maxx + minx) / 2 * entity.scale, (maxy + miny) / 2 * entity.scale, (maxz + minz) / 2 * entity.scale
-  local r, g, b, a = 1, 1, 1, .3 * (self:isFocused(entity) and 3 or (hovered and 2 or 1))
-
-  lovr.graphics.push()
-  lovr.graphics.translate(entity.x, entity.y, entity.z)
-  lovr.graphics.translate(cx, cy, cz)
-  lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
-  lovr.graphics.translate(-cx, -cy, -cz)
-  lovr.graphics.setColor(r, g, b, a)
-  lovr.graphics.box('line', cx, cy, cz, w, h, d)
-  lovr.graphics.pop()
+function layout:drawAccents()
+  for _, entity in ipairs(self.state.entities) do
+    for _, key in ipairs(self.accents) do
+      local accent = self.accents[key]
+      if not accent.filter or accent:filter(entity) then
+        accent:draw(entity)
+      end
+    end
+  end
 end
 
 ----------------
@@ -394,6 +383,40 @@ function layout:loadModels()
   end
 end
 
+function layout:loadAccents()
+  local function addAccent(accent, key)
+    self.accents[key] = accent
+    table.insert(self.accents, setmetatable({ layout = self }, { __index = key }))
+  end
+
+  local function loadAccent(path, key)
+    key = key or ('Accent ' .. #self.accents)
+
+    local isAccent = type(path) == 'table'
+    local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and path:match('%.lua$')
+    local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
+
+    if isAccent then addAccent(path, key)
+    elseif isFile then loadAccent(lovr.filesystem.load(path)(), key)
+    elseif isFolder then
+      for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
+        loadAccent(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
+      end
+    end
+  end
+
+  self.accents = {}
+  self.config.accents = self.config.accents or {}
+
+  if lovr.filesystem.isDirectory(base .. '/accents') then
+    table.insert(self.config.accents, 1, base .. '/accents')
+  end
+
+  for i, path in ipairs(self.config.accents) do
+    loadAccent(path)
+  end
+end
+
 ----------------
 -- Tools
 ----------------
@@ -410,7 +433,7 @@ function layout:loadTools()
     local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and path:match('%.lua$')
     local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
 
-    if isTool then addTool(path, key)
+    if isTool then addTool(path, path.key or key)
     elseif isFile then loadTool(lovr.filesystem.load(path)(), key)
     elseif isFolder then
       for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
