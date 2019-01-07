@@ -27,8 +27,9 @@ function layout:init(config)
   self.toolHoverTimes = {}
 
   self:loadTools()
-  self:loadModels()
+  self:loadObjects()
   self:loadAccents()
+
   self:refreshControllers()
 
   self:eachTool('init')
@@ -88,7 +89,7 @@ end
 
 function layout:draw()
   self:drawCursors()
-  self:drawEntities()
+  self:drawObjects()
   self:drawAccents()
   self:drawToolUI()
   self:eachTool('draw')
@@ -261,7 +262,7 @@ function layout:isHovered(entity, controller, includeLocked, includeFocused)
   end
 
   local t = entity
-  local model = self.models[t.kind]
+  local model = entity.model
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   minx, maxx, miny, maxy, minz, maxz = addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, t.scale)
   local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
@@ -314,27 +315,18 @@ function layout:applyInertia(entity, dt)
   entity.vaz = decay(entity.vaz, rate)
 end
 
-function layout:drawEntities()
-  for _, entity in ipairs(self.state.entities) do
-    local model = self.models[entity.kind]
-    local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-    local cx, cy, cz = (minx + maxx) / 2 * entity.scale, (miny + maxy) / 2 * entity.scale, (minz + maxz) / 2 * entity.scale
-    lovr.graphics.push()
-    lovr.graphics.translate(entity.x + cx, entity.y + cy, entity.z + cz)
-    lovr.graphics.rotate(entity.angle, entity.ax, entity.ay, entity.az)
-    lovr.graphics.translate(-entity.x - cx, -entity.y - cy, -entity.z - cz)
-    lovr.graphics.setColor(1, 1, 1)
-    model:draw(entity.x, entity.y, entity.z, entity.scale)
-    lovr.graphics.pop()
+function layout:drawObjects()
+  for _, objects in ipairs(self.state.entities) do
+    object:draw()
   end
 end
 
 function layout:drawAccents()
-  for _, entity in ipairs(self.state.entities) do
+  for _, object in ipairs(self.state.entities) do
     for _, key in ipairs(self.accents) do
       local accent = self.accents[key]
-      if not accent.filter or accent:filter(entity) then
-        accent:draw(entity)
+      if not accent.filter or accent:filter(object) then
+        accent:draw(object)
       end
     end
   end
@@ -349,37 +341,39 @@ function layout:dirty()
   end
 end
 
-function layout:loadModels()
-  local function addModel(model, key)
-    self.models[key] = model
-    table.insert(self.models, key)
+function layout:loadObjects()
+  local function addObject(object, key)
+    self.objects[key] = obejct
+    table.insert(self.objects, key)
   end
 
-  local function loadModel(path, key)
-    key = key or ('Model ' .. #self.models)
+  local function loadObject(path, key)
+    key = key or ('Object ' .. #self.objects)
 
+    local isObject = type(path) == 'table'
     local isModel = tostring(path) == 'Model'
     local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and (path:match('%.obj$') or path:match('%.gltf$'))
     local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
 
-    if isModel then addModel(path, key)
-    elseif isFile then loadModel(lovr.filesystem.load(path)(), key)
+    if isObject then addObject(path, key)
+    elseif isModel then addObject({ model = lovr.graphics.newModel(path) }, key)
+    elseif isFile then loadObject(lovr.filesystem.load(path)(), key)
     elseif isFolder then
       for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-        loadModel(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
+        loadObject(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
       end
     end
   end
 
-  self.models = {}
-  self.config.models = self.config.models or {}
+  self.objects = {}
+  self.config.objects = self.config.objects or {}
 
-  if lovr.filesystem.isDirectory(base .. '/models') then
-    table.insert(self.config.models, 1, base .. '/models')
+  if lovr.filesystem.isDirectory(base .. '/objects') then
+    table.insert(self.config.objects, 1, base .. '/objects')
   end
 
-  for i, path in ipairs(self.config.models) do
-    loadModel(path)
+  for i, path in ipairs(self.config.objects) do
+    loadObject(path)
   end
 end
 
