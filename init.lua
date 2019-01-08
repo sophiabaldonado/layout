@@ -1,38 +1,72 @@
-local json = require 'cjson'
+local base = (... or ''):match('^(.*)[%./]+$'):gsub('%.', '/')
 
-local base = (...):match('^(.*)[%./]+$') or ''
-base = base:gsub('%.', '/')
+local json = require 'cjson'
+local level = require (base .. '/level')
 
 local layout = {}
-
-local function outBack(t, b, c)
-  local s = 1.70158
-  t = t - 1
-  return c * (t * t * ((s + 1) * t + s) + 1) + b
-end
 
 ----------------
 -- Callbacks
 ----------------
-function layout:init(config)
+function layout:init(config, data)
   self.config = config or {}
   self.config.cursorSize = self.config.cursorSize or .01
   self.config.haptics = type(self.config.haptics) == 'nil' and true or self.config.haptics
   self.config.inertia = type(self.config.inertia) == 'nil' and true or self.config.inertia
 
-  self.state = { entities = {} }
-
   self.focus = {}
   self.hover = {}
   self.toolHoverTimes = {}
 
-  self:loadTools()
-  self:loadObjects()
-  self:loadAccents()
-
   self:refreshControllers()
 
+  self:loadTools()
+  self:loadAssets()
+  self:loadAccents()
+
   self:eachTool('init')
+
+  self:load(nil)
+end
+
+function layout:load(data)
+  if type(data) == 'string' then
+    if data:match('^%s*%{') then
+      data = json.decode(data)
+    elseif lovr.filesystem.isFile(data) then
+      data = json.decode(lovr.filesystem.read(data))
+    else
+      error(string.format('Unable to read level data from %q', data))
+    end
+  end
+
+  self.level = level:new(data)
+  self.objects = {}
+  self:sync()
+end
+
+function layout:sync()
+  for id, object in ipairs(self.objects) do
+    if not self.level:findObject(object.id) then
+      self.objects[id] = nil
+    end
+  end
+
+  for id, data in ipairs(self.level.objects) do
+    if not self.objects[id] then
+      assert(self.assets[data.type], string.format('Unknown object type %q', data.type))
+      self.objects[id] = setmetatable({
+        position = lovr.math.vec3():save(),
+        orientation = lovr.math.quat():save(),
+        scale = 1
+      }, { __index = self.assets[data.type] })
+    end
+
+    local object = self.objects[id]
+    object.position:set(data.x, data.y, data.z)
+    object.rotation:set(data.angle, data.ax, data.ay, data.az)
+    object.scale = data.scale
+  end
 end
 
 function layout:update(dt)
@@ -52,8 +86,8 @@ function layout:update(dt)
   end
 
   -- Apply inertia
-  for _, entity in ipairs(self.state.entities) do
-    self:applyInertia(entity, dt)
+  for _, object in ipairs(self.objects) do
+    self:applyInertia(object, dt)
   end
 
   -- Use continuous tools
@@ -93,6 +127,31 @@ function layout:draw()
   self:drawAccents()
   self:drawToolUI()
   self:eachTool('draw')
+end
+
+function layout:drawCursors()
+  for _, controller in ipairs(self.controllers) do
+    local x, y, z = self:getCursorPosition(controller)
+    lovr.graphics.setColor(1, 1, 1)
+    lovr.graphics.cube('fill', x, y, z, self.config.cursorSize)
+  end
+end
+
+function layout:drawObjects()
+  for _, object in ipairs(self.objects) do
+    object:draw()
+  end
+end
+
+function layout:drawAccents()
+  for _, object in ipairs(self.objects) do
+    for _, key in ipairs(self.accents) do
+      local accent = self.accents[key]
+      if not accent.filter or accent:filter(object) then
+        accent:draw(object)
+      end
+    end
+  end
 end
 
 ----------------
@@ -197,54 +256,22 @@ function layout:getCursorPosition(controller)
   return x + ox * offset, y + oy * offset, z + oz * offset
 end
 
-function layout:drawCursors()
-  for _, controller in ipairs(self.controllers) do
-    local x, y, z = self:getCursorPosition(controller)
-    lovr.graphics.setColor(1, 1, 1)
-    lovr.graphics.cube('fill', x, y, z, self.config.cursorSize)
-  end
-end
-
 function layout:getClosestHover(controller, includeLocked, includeFocused)
   local x, y, z = self:getCursorPosition(controller)
-  local minDistance, closestEntity = math.huge, nil
-  for _, entity in ipairs(self.state.entities) do
-    local d = (x - entity.x) ^ 2 + (y - entity.y) ^ 2 + (z - entity.z) ^ 2
-    if d < minDistance and self:isHovered(entity, controller, includeLocked, includeFocused) then
+  local minDistance, closestObject = math.huge, nil
+  for _, object in ipairs(self.objects) do
+    local d = (x - object.x) ^ 2 + (y - object.y) ^ 2 + (z - object.z) ^ 2
+    if d < minDistance and self:isHovered(object, controller, includeLocked, includeFocused) then
       minDistance = d
-      closestEntity = entity
+      closestObject = object
     end
   end
-  return closestEntity, math.sqrt(minDistance)
+  return closestObject, math.sqrt(minDistance)
 end
 
 ----------------
 -- Entities
 ----------------
-function layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
-  table.insert(self.state.entities, {
-    locked = false,
-    kind = kind,
-    x = x, y = y, z = z,
-    scale = scale,
-    angle = angle, ax = ax, ay = ay, az = az,
-    vx = 0, vy = 0, vz = 0, vs = 0, vax = 0, vay = 0, vaz = 0
-  })
-
-  self:dirty()
-  return self.state.entities[#self.state.entities]
-end
-
-function layout:removeEntity(entity)
-  for i = 1, #self.state.entities do
-    if self.state.entities[i] == entity then
-      table.remove(self.state.entities, i)
-      break
-    end
-  end
-  self:dirty()
-end
-
 function layout:isHovered(entity, controller, includeLocked, includeFocused)
 
   -- Currently if a controller is focusing on an entity then it can't hover over other entities.
@@ -315,65 +342,42 @@ function layout:applyInertia(entity, dt)
   entity.vaz = decay(entity.vaz, rate)
 end
 
-function layout:drawObjects()
-  for _, objects in ipairs(self.state.entities) do
-    object:draw()
-  end
-end
-
-function layout:drawAccents()
-  for _, object in ipairs(self.state.entities) do
-    for _, key in ipairs(self.accents) do
-      local accent = self.accents[key]
-      if not accent.filter or accent:filter(object) then
-        accent:draw(object)
-      end
-    end
-  end
-end
-
 ----------------
--- IO
+-- Glob
 ----------------
-function layout:dirty()
-  if self.config.onChange then
-    self.config.onChange(self.state)
-  end
-end
-
-function layout:loadObjects()
-  local function addObject(object, key)
-    self.objects[key] = obejct
-    table.insert(self.objects, key)
+function layout:loadAssets()
+  local function addAsset(asset, key)
+    self.assets[key] = asset
+    table.insert(self.assets, key)
   end
 
-  local function loadObject(path, key)
-    key = key or ('Object ' .. #self.objects)
+  local function loadAsset(path, key)
+    key = key or ('Asset ' .. #self.asset)
 
-    local isObject = type(path) == 'table'
+    local isAsset = type(path) == 'table'
     local isModel = tostring(path) == 'Model'
     local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and (path:match('%.obj$') or path:match('%.gltf$'))
     local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
 
-    if isObject then addObject(path, key)
-    elseif isModel then addObject({ model = lovr.graphics.newModel(path) }, key)
-    elseif isFile then loadObject(lovr.filesystem.load(path)(), key)
+    if isAsset then addAsset(path, key)
+    elseif isModel then addAsset({ model = lovr.graphics.newModel(path) }, key)
+    elseif isFile then loadAsset(lovr.filesystem.load(path)(), key)
     elseif isFolder then
       for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-        loadObject(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
+        loadAsset(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
       end
     end
   end
 
-  self.objects = {}
-  self.config.objects = self.config.objects or {}
+  self.asset = {}
+  self.config.assets = self.config.assets or {}
 
-  if lovr.filesystem.isDirectory(base .. '/objects') then
-    table.insert(self.config.objects, 1, base .. '/objects')
+  if lovr.filesystem.isDirectory(base .. '/assets') then
+    table.insert(self.config.assets, 1, base .. '/assets')
   end
 
-  for i, path in ipairs(self.config.objects) do
-    loadObject(path)
+  for i, path in ipairs(self.config.assets) do
+    loadAsset(path)
   end
 end
 
@@ -411,9 +415,6 @@ function layout:loadAccents()
   end
 end
 
-----------------
--- Tools
-----------------
 function layout:loadTools()
   local function addTool(tool, key)
     self.tools[key] = setmetatable({ layout = self }, { __index = tool })
@@ -448,6 +449,9 @@ function layout:loadTools()
   end
 end
 
+----------------
+-- Tools
+----------------
 function layout:eachTool(action, ...)
   for _, tool in ipairs(self.tools) do
     if tool[action] then tool[action](tool, ...) end
@@ -458,6 +462,12 @@ function layout:drawToolUI()
   local offsets = { up = { 0, 1 }, down = { 0, -1 }, left = { -1, 0 }, right = { 1, 0 } }
   local haligns = { up = 'center', down = 'center', left = 'right', right = 'left' }
   local valigns = { up = 'bottom', down = 'top', left = 'middle', right = 'middle' }
+
+  local function outBack(t, b, c)
+    local s = 1.70158
+    t = t - 1
+    return c * (t * t * ((s + 1) * t + s) + 1) + b
+  end
 
   lovr.graphics.setColor(1, 1, 1)
   for _, tool in ipairs(self.tools) do
