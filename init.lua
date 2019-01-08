@@ -20,9 +20,9 @@ function layout:init(config, data)
 
   self:refreshControllers()
 
-  self:loadTools()
-  self:loadAssets()
-  self:loadAccents()
+  self:glob('tools', { 'lua' }, true)
+  self:glob('assets', { 'lua', 'obj', 'gltf', 'glb' }, true)
+  self:glob('accents', { 'lua' }, true)
 
   self:eachTool('init')
 
@@ -342,111 +342,55 @@ function layout:applyInertia(entity, dt)
   entity.vaz = decay(entity.vaz, rate)
 end
 
-----------------
--- Glob
-----------------
-function layout:loadAssets()
-  local function addAsset(asset, key)
-    self.assets[key] = asset
-    table.insert(self.assets, key)
-  end
+function layout:glob(kind, extensions, instantiate)
+  local result = {}
 
-  local function loadAsset(path, key)
-    key = key or ('Asset ' .. #self.asset)
+  local loaders = {
+    lua = function(path)
+      local ok, chunk = pcall(lovr.filesystem.load, path)
+      assert(ok, 'Could not load %q: %s', path, chunk)
+      local ok, res = pcall(chunk)
+      assert(ok, 'Could not load %q: %s', path, result)
+      return res
+    end,
 
-    local isAsset = type(path) == 'table'
-    local isModel = tostring(path) == 'Model'
-    local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and (path:match('%.obj$') or path:match('%.gltf$'))
-    local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
+    obj = function(path) return { model = lovr.graphics.newModel(path) } end,
+    gltf = function(path) return { model = lovr.graphics.newModel(path) } end,
+    glb = function(path) return { model = lovr.graphics.newModel(path) } end
+  }
 
-    if isAsset then addAsset(path, key)
-    elseif isModel then addAsset({ model = lovr.graphics.newModel(path) }, key)
-    elseif isFile then loadAsset(lovr.filesystem.load(path)(), key)
-    elseif isFolder then
+  local exts = {}
+  for i, ext in ipairs(extensions) do exts[ext] = true end
+
+  local function loadItem(path, key)
+    key = key or (kind:gsub('^%a', string.upper):gsub('s$', '') .. ' ' .. #result)
+
+    if type(path) == 'table' then
+      local instance = instantiate and setmetatable({ layout = self }, { __index = item }) or item
+      result[key] = instance
+      table.insert(result, instance)
+    elseif lovr.filesystem.isFile(path) then
+      local ext = path:match('%.(%a+)$')
+      if loaders[ext] and exts[ext] then
+        loadItem(loaders[ext](path), key)
+      end
+    elseif lovr.filesystem.isDirectory(path) then
       for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-        loadAsset(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
+        loadItem(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
       end
     end
   end
 
-  self.asset = {}
-  self.config.assets = self.config.assets or {}
-
-  if lovr.filesystem.isDirectory(base .. '/assets') then
-    table.insert(self.config.assets, 1, base .. '/assets')
+  self.config[kind] = self.config[kind] or {}
+  if lovr.filesystem.isDirectory(base .. '/' .. kind) then
+    table.insert(self.config.tools, 1, base .. '/' .. kind)
   end
 
-  for i, path in ipairs(self.config.assets) do
-    loadAsset(path)
-  end
-end
-
-function layout:loadAccents()
-  local function addAccent(accent, key)
-    self.accents[key] = accent
-    table.insert(self.accents, setmetatable({ layout = self }, { __index = key }))
+  for i, path in ipairs(self.config[kind]) do
+    loadItem(path, '')
   end
 
-  local function loadAccent(path, key)
-    key = key or ('Accent ' .. #self.accents)
-
-    local isAccent = type(path) == 'table'
-    local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and path:match('%.lua$')
-    local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
-
-    if isAccent then addAccent(path, key)
-    elseif isFile then loadAccent(lovr.filesystem.load(path)(), key)
-    elseif isFolder then
-      for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-        loadAccent(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
-      end
-    end
-  end
-
-  self.accents = {}
-  self.config.accents = self.config.accents or {}
-
-  if lovr.filesystem.isDirectory(base .. '/accents') then
-    table.insert(self.config.accents, 1, base .. '/accents')
-  end
-
-  for i, path in ipairs(self.config.accents) do
-    loadAccent(path)
-  end
-end
-
-function layout:loadTools()
-  local function addTool(tool, key)
-    self.tools[key] = setmetatable({ layout = self }, { __index = tool })
-    table.insert(self.tools, key)
-  end
-
-  local function loadTool(path, key)
-    key = key or ('Tool ' .. #self.tools)
-
-    local isTool = type(path) == 'table'
-    local isFile = type(path) == 'string' and lovr.filesystem.isFile(path) and path:match('%.lua$')
-    local isFolder = type(path) == 'string' and lovr.filesystem.isDirectory(path)
-
-    if isTool then addTool(path, path.key or key)
-    elseif isFile then loadTool(lovr.filesystem.load(path)(), key)
-    elseif isFolder then
-      for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-        loadTool(path .. '/' .. file, key .. '.' .. path:gsub('%.%a+$', ''))
-      end
-    end
-  end
-
-  self.tools = {}
-  self.config.tools = self.config.tools or {}
-
-  if lovr.filesystem.isDirectory(base .. '/tools') then
-    table.insert(self.config.tools, 1, base .. '/tools')
-  end
-
-  for i, path in ipairs(self.config.tools) do
-    loadTool(path, '')
-  end
+  self[kind] = result
 end
 
 ----------------
