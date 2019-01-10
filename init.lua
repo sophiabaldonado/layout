@@ -6,13 +6,30 @@ local util = require(base .. 'util')
 local layout = {}
 
 local actions = {
-  addObject = function(state, action, history)
+  add = function(state, action, history)
+    state.objects = util.cloneDeep(state.objects)
+
     state.objects[#state.objects + 1] = {
       id = util.nextObjectId(state),
       asset = action.asset,
       x = action.x, y = action.y, z = action.z, scale = action.scale,
       angle = action.angle, ax = action.ax, ay = action.ay, az = action.az
     }
+
+    return state
+  end,
+
+  move = function(state, action, history)
+    for i, object in ipairs(state.objects) do
+      if object.id == action.id then
+        object = util.cloneDeep(object)
+        object.x = action.x
+        object.y = action.y
+        object.z = action.z
+        state.objects[i] = object
+        break
+      end
+    end
 
     return state
   end
@@ -43,8 +60,8 @@ function layout:load(filename)
 end
 
 function layout:dispatch(action)
-  assert(actions[action.type], string.format('No handler for action %q', action.type))
-  self.state = actions[action.type](util.cloneDeep(self.state), action, self.history)
+  assert(actions[action.type], string.format('No handler for action %q', action.type or 'nil'))
+  self.state = actions[action.type](self.state, action, self.history)
   self:save()
   self:sync()
 end
@@ -85,13 +102,13 @@ function layout:sync()
 end
 
 function layout:update(dt)
-  self:updateHovers()
-
   for _, tool in ipairs(self.tools) do
     if tool.update then
       tool:update(dt)
     end
   end
+
+  self:updateHovers()
 end
 
 function layout:draw()

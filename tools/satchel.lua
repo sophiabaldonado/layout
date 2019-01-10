@@ -64,7 +64,7 @@ function Satchel:controllerpressed(controller, button)
           local angle, ax, ay, az = -self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
 
           self.layout:dispatch({
-            type = 'addObject',
+            type = 'add',
             asset = asset.key,
             x = x, y = y, z = z,
             scale = scale,
