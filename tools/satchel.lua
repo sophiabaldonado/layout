@@ -7,7 +7,7 @@ Satchel.button = 'menu'
 function Satchel:init()
   self.active = false
   self.controller = nil
-  self.transform = lovr.math.mat4()
+  self.transform = lovr.math.mat4():save()
   self.yaw = 0
 end
 
@@ -24,16 +24,19 @@ function Satchel:draw()
   lovr.graphics.transform(self.transform)
   lovr.graphics.setColor(1, 1, 1)
 
-  for i, kind, x, y in self:items() do
-    local model = self.layout.models[kind]
-    local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-    local width, height, depth = maxx - minx, maxy - miny, maxz - minz
-    local scale = self.itemSize / math.max(width, height, depth)
-    local cx, cy, cz = (minx + maxx) / 2 * scale, (miny + maxy) / 2 * scale, (minz + maxz) / 2 * scale
-    model:draw(x - cx, y - cy, 0 - cz, scale, lovr.timer.getTime() * .2, 0, 1, 0)
+  for i, asset, x, y in self:items() do
+    local model = asset.model
+    if model then
+      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+      local width, height, depth = maxx - minx, maxy - miny, maxz - minz
+      local scale = self.itemSize / math.max(width, height, depth)
+      local cx, cy, cz = (minx + maxx) / 2 * scale, (miny + maxy) / 2 * scale, (minz + maxz) / 2 * scale
+      model:draw(x - cx, y - cy, 0 - cz, scale, lovr.timer.getTime() * .2, 0, 1, 0)
+    end
   end
 
   lovr.graphics.pop()
+  lovr.graphics.flush()
 end
 
 function Satchel:controllerpressed(controller, button)
@@ -46,21 +49,30 @@ function Satchel:controllerpressed(controller, button)
       self.controller = controller
     end
   elseif self.active and button == 'trigger' then
-    local controllerPosition = lovr.math.vec3(self.layout:getCursorPosition(controller))
-    for i, kind, ix, iy in self:items() do
+    local controllerPosition = self.layout.util.cursorPosition(controller)
+    for i, asset, ix, iy in self:items() do
       local itemPosition = lovr.math.vec3(self.transform:transformPoint(ix, iy, 0))
-      if (controllerPosition - itemPosition):length() < self.itemSize / 2 then
-        local model = self.layout.models[kind]
-        local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-        local width, height, depth = maxx - minx, maxy - miny, maxz - minz
-        local scale = self.itemSize / math.max(width, height, depth)
-        local origin = lovr.math.vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2) * scale
+      if controllerPosition:distance(itemPosition) < self.itemSize / 2 then
+        local model = asset.model
+        if model then
+          local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+          local width, height, depth = maxx - minx, maxy - miny, maxz - minz
+          local scale = self.itemSize / math.max(width, height, depth)
+          local origin = lovr.math.vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2) * scale
 
-        local x, y, z = (itemPosition - origin):unpack()
-        local angle, ax, ay, az = -self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
+          local x, y, z = (itemPosition - origin):unpack()
+          local angle, ax, ay, az = -self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
 
-        self.layout:addEntity(kind, x, y, z, scale, angle, ax, ay, az)
-        return
+          self.layout:dispatch({
+            type = 'addObject',
+            asset = asset.key,
+            x = x, y = y, z = z,
+            scale = scale,
+            angle = angle, ax = ax, ay = ay, az = az
+          })
+
+          return
+        end
       end
     end
   end
@@ -75,17 +87,18 @@ end
 
 function Satchel:updatePosition(controller)
   local controller = self.controller
-  local x, y, z = self.layout:getCursorPosition(controller)
+  local cursor = self.layout.util.cursorPosition(controller)
+  local cx, cy, cz = cursor:unpack()
   local hx, hy, hz = lovr.headset.getPosition()
-  local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, x, 0, z)
+  local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, cx, 0, cz)
   self.transform:identity()
-  self.transform:translate(x, y, z)
+  self.transform:translate(cursor)
   self.transform:rotate(angle, ax, ay, az)
   self.yaw = angle
 end
 
 function Satchel:items()
-  local count = #self.layout.models
+  local count = #self.layout.assets
   local spacing = self.itemSize * 2
   local perRow = math.ceil(math.sqrt(count))
   local rows = math.ceil(count / perRow)
@@ -93,13 +106,13 @@ function Satchel:items()
 
   return function()
     i = i + 1
-    local kind = self.layout.models[i]
-    if not kind then return end
+    local asset = self.layout.assets[i]
+    if not asset then return end
     local col = 1 + ((i - 1) % perRow)
     local row = math.ceil(i / perRow)
     local x = -spacing * (perRow - 1) / 2 + spacing * (col - 1)
     local y = spacing * (rows - 1) / 2 - spacing * (row - 1)
-    return i, kind, x, y
+    return i, asset, x, y
   end
 end
 
