@@ -1,7 +1,7 @@
-local base = (... or ''):match('^(.*)[%./]+$'):gsub('%.', '/')
+local base = ((... or '') .. '/'):gsub('%.', '/'):gsub('/?init', ''):gsub('^/+', '')
 
 local json = require('cjson')
-local util = require(base .. '/util')
+local util = require(base .. 'util')
 
 local layout = {}
 
@@ -236,8 +236,8 @@ function layout:glob(kind, extensions, instantiate)
   end
 
   self.config[kind] = self.config[kind] or {}
-  if lovr.filesystem.isDirectory(base .. '/' .. kind) then
-    table.insert(self.config[kind], 1, base .. '/' .. kind)
+  if lovr.filesystem.isDirectory(base .. kind) then
+    table.insert(self.config[kind], 1, base .. kind)
   end
 
   for i, path in ipairs(self.config[kind]) do

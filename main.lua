@@ -1,4 +1,4 @@
-layout = require '.'
+layout = require 'init'
 
 function lovr.load()
   layout:init()
