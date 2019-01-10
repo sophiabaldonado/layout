@@ -3,9 +3,7 @@ local util = {}
 function util.cloneDeep(x)
   if type(x) == 'table' then
     local t = {}
-    for k, v in pairs(x) do
-      t[k] = util.cloneDeep(v)
-    end
+    for k, v in pairs(x) do t[k] = util.cloneDeep(v) end
     return t
   else
     return x
@@ -22,7 +20,7 @@ function util.getModelBox(model, scale)
   local min = lovr.math.vec3(minx, miny, minz)
   local max = lovr.math.vec3(maxx, maxy, maxz)
   local center = (max + min) / 2
-  local size = (max - min) / 2
+  local size = max - min
   return center:mul(scale), size:mul(scale)
 end
 
@@ -33,7 +31,7 @@ function util.testPointBox(point, position, rotation, scale)
   transform:scale(scale)
   transform:invert()
   x, y, z = transform:transformPoint(point)
-  return x >= -1 and y >= -1 and z >= -1 and x <= 1 and y <= 1 and z <= 1
+  return x >= -.5 and y >= -.5 and z >= -.5 and x <= .5 and y <= .5 and z <= .5
 end
 
 function util.cursorPosition(controller)
