@@ -1,19 +1,5 @@
 local util = {}
 
-function util.cloneDeep(x)
-  if type(x) == 'table' then
-    local t = {}
-    for k, v in pairs(x) do t[k] = util.cloneDeep(v) end
-    return t
-  else
-    return x
-  end
-end
-
-function util.nextObjectId(state)
-  return #state.objects > 0 and (state.objects[#state.objects].id + 1) or 1
-end
-
 function util.getModelBox(model, scale)
   scale = scale or 1
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()

@@ -2,51 +2,9 @@ local base = ((... or '') .. '/'):gsub('%.', '/'):gsub('/?init', ''):gsub('^/+',
 
 local json = require('cjson')
 local util = require(base .. 'util')
+local actions = require(base .. 'actions')
 
 local layout = {}
-
-local actions = {
-  add = function(state, action, history)
-    state.objects = util.cloneDeep(state.objects)
-
-    state.objects[#state.objects + 1] = {
-      id = util.nextObjectId(state),
-      asset = action.asset,
-      x = action.x, y = action.y, z = action.z, scale = action.scale,
-      angle = action.angle, ax = action.ax, ay = action.ay, az = action.az
-    }
-
-    return state
-  end,
-
-  remove = function(state, action, history)
-    state.objects = util.cloneDeep(state.objects)
-
-    for i, object in ipairs(state.objects) do
-      if object.id == action.id then
-        table.remove(state.objects, i)
-        break
-      end
-    end
-
-    return state
-  end,
-
-  move = function(state, action, history)
-    for i, object in ipairs(state.objects) do
-      if object.id == action.id then
-        object = util.cloneDeep(object)
-        object.x = action.x
-        object.y = action.y
-        object.z = action.z
-        state.objects[i] = object
-        break
-      end
-    end
-
-    return state
-  end
-}
 
 function layout:init(filename, config)
   self.util = util
