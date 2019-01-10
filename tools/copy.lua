@@ -1,16 +1,33 @@
--- Do you copy
-
 local Copy = {}
 
-Copy.name = 'Copy'
-Copy.context = 'hover'
-Copy.button = 'up'
-Copy.icon = 'copy.png'
+function Copy:checkDirection(controller, button)
+  return button == 'touchpad' and self.layout.util.touchpadDirection(controller) == 'up'
+end
 
-function Copy:use(controller, entity)
-  local x, y, z = self.layout:getCursorPosition(controller) -- So they don't stack on top of each other
-  local scale, angle, ax, ay, az = entity.scale, entity.angle, entity.ax, entity.ay, entity.az
-  self.layout:addEntity(entity.kind, x, y, z, scale, angle, ax, ay, az)
+function Copy:controllerpressed(controller, button)
+  local object = self.layout.controllers[controller].hover
+
+  if self:checkDirection(controller, button) and object then
+    self.target = object
+  end
+end
+
+function Copy:controllerreleased(controller, button)
+  local object = self.layout.controllers[controller].hover
+
+  if self:checkDirection(controller, button) and object and object == self.target then
+    local x, y, z = self.layout.util.cursorPosition(controller):unpack()
+    local angle, ax, ay, az = object.rotation:unpack()
+
+    self.layout:dispatch({
+      type = 'add',
+      asset = object.asset.key,
+      x = x, y = y, z = z, scale = object.scale,
+      angle = angle, ax = ax, ay = ay, az = az
+    })
+
+    self.target = nil
+  end
 end
 
 return Copy

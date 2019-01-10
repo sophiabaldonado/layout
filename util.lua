@@ -42,11 +42,11 @@ function util.cursorPosition(controller)
 end
 
 function util.touchpadDirection(controller)
-  if not controlller:isTouched('touchpad') then return nil end
+  if not controller:isTouched('touchpad') then return nil end
   local x, y = controller:getAxis('touchx'), controller:getAxis('touchy')
   local angle = math.atan2(y, x)
   local quadrant = math.floor((angle % (2 * math.pi) + (math.pi / 4)) / (math.pi / 2))
-  return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[angle]
+  return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[quadrant]
 end
 
 return util
