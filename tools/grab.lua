@@ -29,7 +29,7 @@ function Grab:controllerpressed(controller, button)
       bzz = 0
     }
 
-    controller:vibrate(.003)
+    controller:vibrate(.002)
   end
 end
 

@@ -19,6 +19,19 @@ local actions = {
     return state
   end,
 
+  remove = function(state, action, history)
+    state.objects = util.cloneDeep(state.objects)
+
+    for i, object in ipairs(state.objects) do
+      if object.id == action.id then
+        table.remove(state.objects, i)
+        break
+      end
+    end
+
+    return state
+  end,
+
   move = function(state, action, history)
     for i, object in ipairs(state.objects) do
       if object.id == action.id then
@@ -96,6 +109,12 @@ function layout:sync()
   -- Remove objects that aren't in the level anymore
   for id in pairs(self.objects) do
     if not lookup[id] then
+      for _, controller in ipairs(self.controllers) do
+        if self.controllers[controller].hover == self.objects[id] then
+          self.controllers[controller].hover = nil
+        end
+      end
+
       self.objects[id] = nil
     end
   end
@@ -176,7 +195,7 @@ function layout:updateHovers()
     local object = self:getClosestHover(controller)
 
     if self.controllers[controller].hover ~= object then
-      controller:vibrate(object and .002 or .0005)
+      controller:vibrate(object and .001 or .0005)
       self.controllers[controller].hover = object
     end
 

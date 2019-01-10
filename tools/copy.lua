@@ -9,6 +9,7 @@ function Copy:controllerpressed(controller, button)
 
   if self:checkDirection(controller, button) and object then
     self.target = object
+    controller:vibrate(.002)
   end
 end
 
@@ -26,6 +27,7 @@ function Copy:controllerreleased(controller, button)
       angle = angle, ax = ax, ay = ay, az = az
     })
 
+    controller:vibrate(.001)
     self.target = nil
   end
 end
