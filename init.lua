@@ -18,13 +18,13 @@ function layout:init(filename, config)
 end
 
 function layout:save(filename)
-  if not (filename or self.filename) then return end
-  return lovr.filesystem.write(filename or self.filename, json.encode(self.state))
+  filename = filename or self.filename
+  if not filename then return false end
+  return lovr.filesystem.write(filename, json.encode(self.state))
 end
 
 function layout:load(filename)
-  assert(not filename or lovr.filesystem.isFile(filename), string.format('Unable to read level from %q', filename or ''))
-  self.state = filename and json.decode(lovr.filesystem.read(filename)) or { objects = {} }
+  self.state = filename and lovr.filesystem.isFile(filename) and json.decode(lovr.filesystem.read(filename)) or { objects = {} }
   self.history = { undo = {}, redo = {} }
   self.filename = filename
   self.objects = {}

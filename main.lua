@@ -1,7 +1,7 @@
 layout = require 'init'
 
 function lovr.load()
-  layout:init()
+  layout:init('level.json')
 end
 
 function lovr.update(dt)
