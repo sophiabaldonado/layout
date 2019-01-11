@@ -14,7 +14,7 @@ end
 
 return {
   add = function(state, action, history)
-    state.objects = cloneDeep(state.objects)
+    state = cloneDeep(state)
 
     state.objects[#state.objects + 1] = {
       id = nextObjectId(state),
@@ -27,10 +27,9 @@ return {
   end,
 
   remove = function(state, action, history)
-    state.objects = cloneDeep(state.objects)
-
     for i, object in ipairs(state.objects) do
       if object.id == action.id then
+        state = cloneDeep(state)
         table.remove(state.objects, i)
         break
       end
@@ -42,7 +41,8 @@ return {
   transform = function(state, action, history)
     for i, object in ipairs(state.objects) do
       if object.id == action.id then
-        object = cloneDeep(object)
+        state = cloneDeep(state)
+        object = state.objects[i]
         object.x = action.x
         object.y = action.y
         object.z = action.z

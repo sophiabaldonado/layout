@@ -32,9 +32,30 @@ end
 
 function layout:dispatch(action)
   assert(actions[action.type], string.format('No handler for action %q', action.type or 'nil'))
-  self.state = actions[action.type](self.state, action, self.history)
-  self:save()
-  self:sync()
+  local state = actions[action.type](self.state, action, self.history)
+
+  if self.state ~= state then
+    table.insert(self.history.undo, self.state)
+    self.history.redo = {}
+    self.state = state
+    self:sync()
+  end
+end
+
+function layout:undo()
+  if #self.history.undo > 0 then
+    table.insert(self.history.redo, self.state)
+    self.state = table.remove(self.history.undo)
+    self:sync()
+  end
+end
+
+function layout:redo()
+  if #self.history.redo > 0 then
+    table.insert(self.history.undo, self.state)
+    self.state = table.remove(self.history.redo)
+    self:sync()
+  end
 end
 
 function layout:sync()
@@ -76,6 +97,8 @@ function layout:sync()
       self.objects[id] = nil
     end
   end
+
+  self:save()
 end
 
 function layout:update(dt)
