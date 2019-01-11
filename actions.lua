@@ -19,6 +19,7 @@ return {
     state.objects[#state.objects + 1] = {
       id = nextObjectId(state),
       asset = action.asset,
+      locked = false,
       x = action.x, y = action.y, z = action.z, scale = action.scale,
       angle = action.angle, ax = action.ax, ay = action.ay, az = action.az
     }
@@ -52,6 +53,20 @@ return {
         object.ay = action.ay
         object.az = action.az
         state.objects[i] = object
+        break
+      end
+    end
+
+    return state
+  end,
+
+  setLocked = function(state, action, history)
+    for i, object in ipairs(state.objects) do
+      if object.id == action.id then
+        if state.objects[i].locked ~= action.locked then
+          state = cloneDeep(state)
+          state.objects[i].locked = action.locked
+        end
         break
       end
     end

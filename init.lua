@@ -74,15 +74,17 @@ function layout:sync()
         position = lovr.math.vec3():save(),
         rotation = lovr.math.quat():save(),
         scale = 1,
+        locked = false,
         hovered = false
       }, self.assets[data.asset])
     end
 
     local object = self.objects[id]
+    object.data = data
     object.position:set(data.x, data.y, data.z)
     object.rotation:set(data.angle, data.ax, data.ay, data.az)
     object.scale = data.scale
-    object.data = data
+    object.locked = data.locked
     lookup[id] = true
   end
 
@@ -219,15 +221,17 @@ function layout:updateHovers()
   end
 end
 
-function layout:getClosestHover(controller)
+function layout:getClosestHover(controller, lockpick)
   local cursor = self:cursorPosition(controller)
   local distance, closest = math.huge, nil
 
   for _, object in pairs(self.objects) do
-    local d = cursor:distance(object.position)
-    if d < distance and self:isHovered(object, controller) then
-      distance = d
-      closest = object
+    if not object.locked or lockpick then
+      local d = cursor:distance(object.position)
+      if d < distance and self:isHovered(object, controller) then
+        distance = d
+        closest = object
+      end
     end
   end
 
