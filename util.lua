@@ -20,13 +20,6 @@ function util.testPointBox(point, position, rotation, scale)
   return x >= -.5 and y >= -.5 and z >= -.5 and x <= .5 and y <= .5 and z <= .5
 end
 
-function util.cursorPosition(controller)
-  local offset = .075
-  local position = lovr.math.vec3(controller:getPosition())
-  local direction = lovr.math.vec3(lovr.math.orientationToDirection(controller:getOrientation()))
-  return position:add(direction:mul(offset))
-end
-
 function util.touchpadDirection(controller)
   if not controller:isTouched('touchpad') then return nil end
   local x, y = controller:getAxis('touchx'), controller:getAxis('touchy')

@@ -17,10 +17,10 @@ function Grab:update(dt)
     local object = grab.object
     local other = self.layout.controllers[controller].other
     local scale = self.grabs[other] and self.grabs[other].object == object
-    local cursor = self.layout.util.cursorPosition(controller)
+    local cursor = self.layout:cursorPosition(controller)
 
     if scale then
-      local distance = cursor:distance(self.layout.util.cursorPosition(other))
+      local distance = cursor:distance(self.layout:cursorPosition(other))
       local lastDistance = grab.distance or distance
       local delta = math.abs(distance - lastDistance)
       local factor = distance / lastDistance
@@ -39,8 +39,8 @@ end
 
 function Grab:controllerpressed(controller, button)
   if button == 'trigger' and self.layout.controllers[controller].hover then
-    local cursor = self.layout.util.cursorPosition(controller)
     local object = self.layout.controllers[controller].hover
+    local cursor = self.layout:cursorPosition(controller)
 
     self.grabs[controller] = {
       object = object,
@@ -63,7 +63,7 @@ function Grab:controllerreleased(controller, button)
     self.grabs[controller] = nil
 
     if other and self.grabs[other] and self.grabs[other].object == object then
-      self.grabs[other].offset:set(x, y, z):sub(self.layout.util.cursorPosition(other))
+      self.grabs[other].offset:set(x, y, z):sub(self.layout:cursorPosition(other))
       self.grabs[other].distance = nil
     else
       self.layout:dispatch({

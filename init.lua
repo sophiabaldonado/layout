@@ -12,6 +12,7 @@ function layout:init(filename, config)
   self.tools = self:glob('tools', { 'lua' }, true)
   self.assets = self:glob('assets', { 'lua', 'obj', 'gltf', 'glb' }, false)
   self.accents = self:glob('accents', { 'lua' }, true)
+  self.transform = lovr.math.mat4():save()
   self:refreshControllers()
   self:load(filename)
 end
@@ -101,6 +102,26 @@ function layout:sync()
   self:save()
 end
 
+function layout:translate(...)
+  self.transform:translate(...)
+end
+
+function layout:rotate(...)
+  self.transform:rotate(...)
+end
+
+function layout:scale(...)
+  self.transform:scale(...)
+end
+
+function layout:getTransform(transform)
+  return self.transform:copy()
+end
+
+function layout:setTransform(transform)
+  self.transform:set(transform)
+end
+
 function layout:update(dt)
   for _, tool in ipairs(self.tools) do
     if tool.update then
@@ -112,6 +133,9 @@ function layout:update(dt)
 end
 
 function layout:draw()
+  lovr.graphics.push()
+  lovr.graphics.transform(self.transform)
+
   for _, object in pairs(self.objects) do
     if object.draw then
       object:draw()
@@ -124,6 +148,8 @@ function layout:draw()
     end
   end
 
+  lovr.graphics.pop()
+
   for _, tool in ipairs(self.tools) do
     if tool.draw then
       tool:draw()
@@ -131,7 +157,7 @@ function layout:draw()
   end
 
   for _, controller in ipairs(self.controllers) do
-    lovr.graphics.cube('fill', util.cursorPosition(controller), .01)
+    lovr.graphics.cube('fill', self:cursorPosition(controller, true), .01)
   end
 end
 
@@ -167,6 +193,13 @@ end
 layout.controlleradded = layout.refreshControllers
 layout.controllerremoved = layout.refreshControllers
 
+function layout:cursorPosition(controller, raw)
+  local offset = .075
+  local direction = lovr.math.vec3(lovr.math.orientationToDirection(controller:getOrientation()))
+  local position = lovr.math.vec3(controller:getPosition()):add(direction:mul(offset))
+  return raw and position or lovr.math.vec3(self.transform:copy():invert():transformPoint(position))
+end
+
 function layout:updateHovers()
   for _, object in pairs(self.objects) do
     object.hovered = false
@@ -187,7 +220,7 @@ function layout:updateHovers()
 end
 
 function layout:getClosestHover(controller)
-  local cursor = util.cursorPosition(controller)
+  local cursor = self:cursorPosition(controller)
   local distance, closest = math.huge, nil
 
   for _, object in pairs(self.objects) do
@@ -208,7 +241,7 @@ function layout:isHovered(object, controller)
   local center, size = util.getModelBox(object.asset.model, object.scale)
 
   for _, controller in ipairs(controllers) do
-    if util.testPointBox(util.cursorPosition(controller), object.position + center, object.rotation, size) then
+    if util.testPointBox(self:cursorPosition(controller), object.position + center, object.rotation, size) then
       return controller
     end
   end
