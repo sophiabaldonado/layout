@@ -5,7 +5,7 @@ function Border:filter(object)
 end
 
 function Border:draw(object)
-  local center, size = self.layout.util.getModelBox(object.asset.model, object.scale)
+  local center, size = self.layout:getModelBox(object.asset.model, object.scale)
   if object.locked then
     lovr.graphics.setColor(.988, .835, .333, .3)
   else

@@ -27,9 +27,25 @@ function Grab:update(dt)
       object.scale = object.scale * factor
       grab.distance = distance
       bzz(delta)
+
+      local otherCursor = self.layout:cursorPosition(other)
+      local otherGrab = self.grabs[other]
+
+      local d1 = grab.lastPosition:copy(self.layout.pool):sub(otherGrab.lastPosition):normalize()
+      local d2 = cursor:copy(self.layout.pool):sub(otherCursor):normalize()
+      local angle = math.acos(d1:dot(d2))
+      local axis = d1:cross(d2):normalize()
+
+      if angle == angle then
+        local rotation = self.layout.pool:quat(angle, axis)
+        object.rotation:set(rotation:mul(object.rotation)):normalize()
+      end
+
+      grab.lastPosition:set(cursor)
+      otherGrab.lastPosition:set(otherCursor)
       break
     else
-      local target = cursor + grab.offset
+      local target = cursor:add(grab.offset)
       local delta = object.position:distance(target)
       object.position:set(target)
       bzz(delta)
@@ -45,6 +61,7 @@ function Grab:controllerpressed(controller, button)
     self.grabs[controller] = {
       object = object,
       offset = object.position:copy():sub(cursor):save(),
+      lastPosition = cursor:save(),
       distance = nil,
       bzz = 0
     }

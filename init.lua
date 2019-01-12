@@ -1,18 +1,17 @@
 local base = ((... or '') .. '/'):gsub('%.', '/'):gsub('/?init', ''):gsub('^/+', '')
 
 local json = require('cjson')
-local util = require(base .. 'util')
 local actions = require(base .. 'actions')
 
 local layout = {}
 
 function layout:init(filename, config)
-  self.util = util
   self.config = config or {}
+  self.pool = lovr.math.newPool(4096, true)
   self.tools = self:glob('tools', { 'lua' }, true)
   self.assets = self:glob('assets', { 'lua', 'obj', 'gltf', 'glb' }, false)
   self.accents = self:glob('accents', { 'lua' }, true)
-  self.transform = lovr.math.mat4():save()
+  self.transform = self.pool:mat4():save()
   self:refreshControllers()
   self:load(filename)
 end
@@ -71,8 +70,8 @@ function layout:sync()
         id = id,
         data = data,
         asset = self.assets[data.asset],
-        position = lovr.math.vec3():save(),
-        rotation = lovr.math.quat():save(),
+        position = self.pool:vec3():save(),
+        rotation = self.pool:quat():save(),
         scale = 1,
         locked = false,
         hovered = false
@@ -125,6 +124,8 @@ function layout:setTransform(transform)
 end
 
 function layout:update(dt)
+  self.pool:drain()
+
   for _, tool in ipairs(self.tools) do
     if tool.update then
       tool:update(dt)
@@ -197,9 +198,9 @@ layout.controllerremoved = layout.refreshControllers
 
 function layout:cursorPosition(controller, raw)
   local offset = .075
-  local direction = lovr.math.vec3(lovr.math.orientationToDirection(controller:getOrientation()))
-  local position = lovr.math.vec3(controller:getPosition()):add(direction:mul(offset))
-  return raw and position or lovr.math.vec3(self.transform:copy():invert():transformPoint(position))
+  local direction = self.pool:vec3(lovr.math.orientationToDirection(controller:getOrientation()))
+  local position = self.pool:vec3(controller:getPosition()):add(direction:mul(offset))
+  return raw and position or self.pool:vec3(self.transform:copy(self.pool):invert():transformPoint(position))
 end
 
 function layout:updateHovers()
@@ -242,15 +243,43 @@ function layout:isHovered(object, controller)
   if not object.asset.model then return false end
 
   local controllers = controller and { controller } or self.controllers
-  local center, size = util.getModelBox(object.asset.model, object.scale)
+  local center, size = self:getModelBox(object.asset.model, object.scale)
 
   for _, controller in ipairs(controllers) do
-    if util.testPointBox(self:cursorPosition(controller), object.position + center, object.rotation, size) then
+    if self:testPointBox(self:cursorPosition(controller), object.position + center, object.rotation, size) then
       return controller
     end
   end
 
   return false
+end
+
+function layout:getModelBox(model, scale)
+  scale = scale or 1
+  local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+  local min = self.pool:vec3(minx, miny, minz)
+  local max = self.pool:vec3(maxx, maxy, maxz)
+  local center = max:copy(self.pool):add(min):mul(.5)
+  local size = max:sub(min)
+  return center:mul(scale), size:mul(scale)
+end
+
+function layout:testPointBox(point, position, rotation, scale)
+  local transform = self.pool:mat4()
+  transform:translate(position)
+  transform:rotate(rotation)
+  transform:scale(scale)
+  transform:invert()
+  x, y, z = transform:transformPoint(point)
+  return x >= -.5 and y >= -.5 and z >= -.5 and x <= .5 and y <= .5 and z <= .5
+end
+
+function layout:touchpadDirection(controller)
+  if not controller:isTouched('touchpad') then return nil end
+  local x, y = controller:getAxis('touchx'), controller:getAxis('touchy')
+  local angle = math.atan2(y, x)
+  local quadrant = math.floor((angle % (2 * math.pi) + (math.pi / 4)) / (math.pi / 2))
+  return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[quadrant]
 end
 
 function layout:glob(kind, extensions, instantiate)

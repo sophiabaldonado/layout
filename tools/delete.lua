@@ -1,7 +1,7 @@
 local Delete = {}
 
 function Delete:checkDirection(controller, button)
-  return button == 'touchpad' and self.layout.util.touchpadDirection(controller) == 'down'
+  return button == 'touchpad' and self.layout:touchpadDirection(controller) == 'down'
 end
 
 function Delete:controllerpressed(controller, button)

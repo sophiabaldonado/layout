@@ -1,7 +1,7 @@
 local Lock = {}
 
 function Lock:checkDirection(controller, button)
-  return button == 'touchpad' and self.layout.util.touchpadDirection(controller) == 'up'
+  return button == 'touchpad' and self.layout:touchpadDirection(controller) == 'up'
 end
 
 function Lock:controllerpressed(controller, button)

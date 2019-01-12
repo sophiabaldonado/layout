@@ -5,11 +5,13 @@ function Model:filter(object)
 end
 
 function Model:draw(object)
-  local center, size = self.layout.util.getModelBox(object.asset.model, object.scale)
+  local center, size = self.layout:getModelBox(object.asset.model, object.scale)
   lovr.graphics.push()
-  lovr.graphics.translate(object.position + center)
+  lovr.graphics.translate(object.position)
+  lovr.graphics.translate(center)
   lovr.graphics.rotate(object.rotation)
-  lovr.graphics.translate(-object.position - center)
+  lovr.graphics.translate(-object.position)
+  lovr.graphics.translate(-center)
   object.asset.model:draw(object.position, object.scale)
   lovr.graphics.pop()
 end

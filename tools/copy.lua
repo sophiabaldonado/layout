@@ -1,7 +1,7 @@
 local Copy = {}
 
 function Copy:checkDirection(controller, button)
-  return button == 'touchpad' and self.layout.util.touchpadDirection(controller) == 'right'
+  return button == 'touchpad' and self.layout:touchpadDirection(controller) == 'right'
 end
 
 function Copy:controllerpressed(controller, button)
