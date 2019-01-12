@@ -23,7 +23,8 @@ function layout:save(filename)
 end
 
 function layout:load(filename)
-  self.state = filename and lovr.filesystem.isFile(filename) and json.decode(lovr.filesystem.read(filename)) or { objects = {} }
+  self.state = filename and lovr.filesystem.isFile(filename) and json.decode(lovr.filesystem.read(filename)) or {}
+  self.state.objects = self.state.objects or {}
   self.history = { undo = {}, redo = {} }
   self.filename = filename
   self.objects = {}
