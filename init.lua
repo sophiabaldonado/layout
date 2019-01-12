@@ -67,6 +67,7 @@ function layout:sync()
     local id = data.id
 
     if not self.objects[id] then
+      assert(self.assets[data.asset], string.format('Missing asset %q', data.asset or 'nil'))
       self.objects[id] = setmetatable({
         id = id,
         data = data,
