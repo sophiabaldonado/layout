@@ -61,7 +61,7 @@ function Satchel:controllerpressed(controller, button)
           local origin = self.layout.pool:vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2):mul(scale)
 
           local x, y, z = self.layout.transform:copy(self.layout.pool):invert():transformPoint(itemPosition:sub(origin))
-          local angle, ax, ay, az = -self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
+          local angle, ax, ay, az = self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
 
           self.layout:dispatch({
             type = 'add',
@@ -70,6 +70,12 @@ function Satchel:controllerpressed(controller, button)
             scale = scale,
             angle = angle, ax = ax, ay = ay, az = az
           })
+
+          -- This is a little hacky, but it's how we let grab know about the new object
+          if self.layout.tools.grab then
+            self.layout:updateHovers()
+            self.layout.tools.grab:controllerpressed(controller, button)
+          end
 
           return
         end
