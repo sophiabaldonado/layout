@@ -319,6 +319,8 @@ function layout:glob(kind, extensions, instantiate)
   end
 
   self.config[kind] = self.config[kind] or {}
+  if type(self.config[kind]) == 'string' then self.config[kind] = { self.config[kind] } end
+
   if lovr.filesystem.isDirectory(base .. kind) then
     table.insert(self.config[kind], 1, base .. kind)
   end
