@@ -11,7 +11,7 @@ function layout:init(filename, config)
   self.tools = self:glob('tools', { 'lua' }, true)
   self.assets = self:glob('assets', { 'lua', 'obj', 'gltf', 'glb' }, false)
   self.accents = self:glob('accents', { 'lua' }, true)
-  self.transform = self.pool:mat4():save()
+  self.transform = lovr.math.mat4()
   self:refreshControllers()
   self:load(filename)
 end
@@ -23,7 +23,8 @@ function layout:save(filename)
 end
 
 function layout:load(filename)
-  self.state = filename and lovr.filesystem.isFile(filename) and json.decode(lovr.filesystem.read(filename)) or {}
+  local file = lovr.filesystem.read(filename)
+  self.state = filename and lovr.filesystem.isFile(filename) and json.decode(file) or {}
   self.state.objects = self.state.objects or {}
   self.history = { undo = {}, redo = {} }
   self.filename = filename
@@ -72,8 +73,8 @@ function layout:sync()
         id = id,
         data = data,
         asset = self.assets[data.asset],
-        position = self.pool:vec3():save(),
-        rotation = self.pool:quat():save(),
+        position = lovr.math.vec3(),
+        rotation = lovr.math.quat(),
         scale = 1,
         locked = false,
         hovered = false
@@ -202,7 +203,7 @@ function layout:cursorPosition(controller, raw)
   local offset = .075
   local direction = self.pool:vec3(lovr.math.orientationToDirection(controller:getOrientation()))
   local position = self.pool:vec3(controller:getPosition()):add(direction:mul(offset))
-  return raw and position or self.pool:vec3(self.transform:copy(self.pool):invert():transformPoint(position))
+  return raw and position or self.pool:vec3(self.pool:mat4(self.transform):invert():mul(position))
 end
 
 function layout:updateHovers()
@@ -272,7 +273,7 @@ function layout:testPointBox(point, position, rotation, scale)
   transform:rotate(rotation)
   transform:scale(scale)
   transform:invert()
-  x, y, z = transform:transformPoint(point)
+  x, y, z = transform:mul(point)
   return x >= -.5 and y >= -.5 and z >= -.5 and x <= .5 and y <= .5 and z <= .5
 end
 

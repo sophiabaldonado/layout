@@ -7,7 +7,7 @@ Satchel.button = 'menu'
 function Satchel:init()
   self.active = false
   self.controller = nil
-  self.transform = self.layout.pool:mat4():save()
+  self.transform = lovr.math.mat4()
   self.yaw = 0
 end
 
