@@ -7,12 +7,12 @@ local layout = {}
 
 function layout:init(filename, config)
   self.config = config or {}
-  self.pool = lovr.math.newPool(4096, true)
+  self.pool = lovr.math.newPool(4194304, true)
   self.tools = self:glob('tools', { 'lua' }, true)
   self.assets = self:glob('assets', { 'lua', 'obj', 'gltf', 'glb' }, false)
   self.accents = self:glob('accents', { 'lua' }, true)
+  self.hands = {}
   self.transform = lovr.math.mat4()
-  self:refreshControllers()
   self:load(filename)
 end
 
@@ -93,9 +93,9 @@ function layout:sync()
   -- Remove objects that aren't in the level anymore
   for id in pairs(self.objects) do
     if not lookup[id] then
-      for _, controller in ipairs(self.controllers) do
-        if self.controllers[controller].hover == self.objects[id] then
-          self.controllers[controller].hover = nil
+      for _, hand in pairs(self.hands) do
+        if hand.hover == self.objects[id] then
+          hand.hover = nil
         end
       end
 
@@ -162,8 +162,8 @@ function layout:draw()
     end
   end
 
-  for _, controller in ipairs(self.controllers) do
-    lovr.graphics.cube('fill', self:cursorPosition(controller, true), .01)
+  for hand in lovr.headset.hands() do
+    lovr.graphics.cube('fill', self:cursorPosition(hand, true), .01)
   end
 end
 
@@ -185,24 +185,10 @@ function layout:controllerreleased(controller, button)
   end
 end
 
-function layout:refreshControllers()
-  self.controllers = lovr.headset.getControllers()
-  for i, controller in ipairs(self.controllers) do
-    self.controllers[controller] = {
-      instance = controller,
-      other = self.controllers[3 - i],
-      hover = nil
-    }
-  end
-end
-
-layout.controlleradded = layout.refreshControllers
-layout.controllerremoved = layout.refreshControllers
-
-function layout:cursorPosition(controller, raw)
+function layout:cursorPosition(hand, raw)
   local offset = .075
-  local direction = self.pool:vec3(lovr.math.orientationToDirection(controller:getOrientation()))
-  local position = self.pool:vec3(controller:getPosition()):add(direction:mul(offset))
+  local direction = self.pool:vec3(lovr.math.orientationToDirection(lovr.headset.getOrientation(hand)))
+  local position = self.pool:vec3(lovr.headset.getPosition(hand)):add(direction:mul(offset))
   return raw and position or self.pool:vec3(self.pool:mat4(self.transform):invert():mul(position))
 end
 
@@ -211,12 +197,12 @@ function layout:updateHovers()
     object.hovered = false
   end
 
-  for _, controller in ipairs(self.controllers) do
-    local object = self:getClosestHover(controller)
+  for hand in lovr.headset.hands() do
+    local object = self:getClosestHover(hand)
 
-    if self.controllers[controller].hover ~= object then
-      controller:vibrate(object and .001 or .0005)
-      self.controllers[controller].hover = object
+    if self.hands[hand].hover ~= object then
+      lovr.headset.vibrate(hand, object and .001 or .0005)
+      self.hands[hand].hover = object
     end
 
     if object then
@@ -225,14 +211,14 @@ function layout:updateHovers()
   end
 end
 
-function layout:getClosestHover(controller, lockpick)
-  local cursor = self:cursorPosition(controller)
+function layout:getClosestHover(hand, lockpick)
+  local cursor = self:cursorPosition(hand)
   local distance, closest = math.huge, nil
 
   for _, object in pairs(self.objects) do
     if not object.locked or lockpick then
       local d = cursor:distance(object.position)
-      if d < distance and self:isHovered(object, controller) then
+      if d < distance and self:isHovered(object, hand) then
         distance = d
         closest = object
       end
@@ -242,15 +228,15 @@ function layout:getClosestHover(controller, lockpick)
   return closest, distance
 end
 
-function layout:isHovered(object, controller)
+function layout:isHovered(object, hand)
   if not object.asset.model then return false end
 
-  local controllers = controller and { controller } or self.controllers
+  local hands = hand and { [hand] = self.hands[hand] } or self.hands
   local center, size = self:getModelBox(object.asset.model, object.scale)
 
-  for _, controller in ipairs(controllers) do
-    if self:testPointBox(self:cursorPosition(controller), object.position + center, object.rotation, size) then
-      return controller
+  for h in pairs(hands) do
+    if self:testPointBox(self:cursorPosition(h), object.position + center, object.rotation, size) then
+      return h
     end
   end
 
@@ -262,7 +248,7 @@ function layout:getModelBox(model, scale)
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
   local min = self.pool:vec3(minx, miny, minz)
   local max = self.pool:vec3(maxx, maxy, maxz)
-  local center = max:copy(self.pool):add(min):mul(.5)
+  local center = self.pool:vec3(max):add(min):mul(.5)
   local size = max:sub(min)
   return center:mul(scale), size:mul(scale)
 end
@@ -273,13 +259,13 @@ function layout:testPointBox(point, position, rotation, scale)
   transform:rotate(rotation)
   transform:scale(scale)
   transform:invert()
-  x, y, z = transform:mul(point)
+  x, y, z = transform:mul(point):unpack()
   return x >= -.5 and y >= -.5 and z >= -.5 and x <= .5 and y <= .5 and z <= .5
 end
 
-function layout:touchpadDirection(controller)
-  if not controller:isTouched('touchpad') then return nil end
-  local x, y = controller:getAxis('touchx'), controller:getAxis('touchy')
+function layout:touchpadDirection(hand)
+  if not lovr.headset.isTouched(hand, 'touchpad') then return nil end
+  local x, y = lovr.headset.getAxis(hand, 'touchpad')
   local angle = math.atan2(y, x)
   local quadrant = math.floor((angle % (2 * math.pi) + (math.pi / 4)) / (math.pi / 2))
   return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[quadrant]
