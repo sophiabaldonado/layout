@@ -5,19 +5,19 @@ function Grab:init()
 end
 
 function Grab:update(dt)
-  for controller, grab in pairs(self.grabs) do
+  for hand, grab in pairs(self.grabs) do
     local function bzz(delta)
       grab.bzz = grab.bzz + delta
       while grab.bzz >= .1 do
-        controller:vibrate(.00075)
+        lovr.headset.vibrate(hand, .00075)
         grab.bzz = grab.bzz - .1
       end
     end
 
     local object = grab.object
-    local other = self.layout.controllers[controller].other
+    local other = self.layout.hands[hand].other
     local scale = self.grabs[other] and self.grabs[other].object == object
-    local cursor = self.layout:cursorPosition(controller)
+    local cursor = self.layout:cursorPosition(hand)
 
     if scale then
       local distance = cursor:distance(self.layout:cursorPosition(other))
@@ -53,12 +53,12 @@ function Grab:update(dt)
   end
 end
 
-function Grab:controllerpressed(controller, button)
-  if button == 'trigger' and self.layout.controllers[controller].hover then
-    local object = self.layout.controllers[controller].hover
-    local cursor = self.layout:cursorPosition(controller)
+function Grab:controllerpressed(hand, button)
+  if button == 'trigger' and self.layout.hands[hand].hover then
+    local object = self.layout.hands[hand].hover
+    local cursor = self.layout:cursorPosition(hand)
 
-    self.grabs[controller] = {
+    self.grabs[hand] = {
       object = object,
       offset = object.position:copy():sub(cursor):save(),
       lastPosition = cursor:save(),
@@ -66,18 +66,18 @@ function Grab:controllerpressed(controller, button)
       bzz = 0
     }
 
-    controller:vibrate(.002)
+    lovr.headset.vibrate(hand, .002)
   end
 end
 
-function Grab:controllerreleased(controller, button)
-  if button == 'trigger' and self.grabs[controller] then
-    local other = self.layout.controllers[controller].other
-    local object = self.grabs[controller].object
+function Grab:controllerreleased(hand, button)
+  if button == 'trigger' and self.grabs[hand] then
+    local other = self.layout.hands[hand].other
+    local object = self.grabs[hand].object
     local x, y, z = object.position:unpack()
     local angle, ax, ay, az = object.rotation:unpack()
 
-    self.grabs[controller] = nil
+    self.grabs[hand] = nil
 
     if other and self.grabs[other] and self.grabs[other].object == object then
       self.grabs[other].offset:set(x, y, z):sub(self.layout:cursorPosition(other))

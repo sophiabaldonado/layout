@@ -126,16 +126,46 @@ function layout:setTransform(transform)
   self.transform:set(transform)
 end
 
+local buttons = { 'trigger', 'touchpad', 'grip', 'menu' }
 function layout:update(dt)
   self.pool:drain()
+  self:updateHovers()
+
+  for path in lovr.headset.hands() do
+    self.hands[path] = self.hands[path] or {
+      path = hand,
+      hover = nil,
+      lastButtons = {}
+    }
+
+    local hand = self.hands[path]
+
+    -- Emulated controller events
+    for i, button in ipairs(buttons) do
+      local wasDown = hand.lastButtons[button]
+      local isDown = lovr.headset.isDown(path, button)
+      if not wasDown and isDown then
+        for _, tool in ipairs(self.tools) do
+          if tool.controllerpressed then
+            tool:controllerpressed(path, button)
+          end
+        end
+      elseif wasDown and not isDown then
+        for _, tool in ipairs(self.tools) do
+          if tool.controllerreleased then
+            tool:controllerreleased(path, button)
+          end
+        end
+      end
+      hand.lastButtons[button] = isDown
+    end
+  end
 
   for _, tool in ipairs(self.tools) do
     if tool.update then
       tool:update(dt)
     end
   end
-
-  self:updateHovers()
 end
 
 function layout:draw()
@@ -167,25 +197,8 @@ function layout:draw()
   end
 end
 
-function layout:controllerpressed(controller, button)
-  self:updateHovers()
-  for _, tool in ipairs(self.tools) do
-    if tool.controllerpressed then
-      tool:controllerpressed(controller, button)
-    end
-  end
-end
-
-function layout:controllerreleased(controller, button)
-  self:updateHovers()
-  for _, tool in ipairs(self.tools) do
-    if tool.controllerreleased then
-      tool:controllerreleased(controller, button)
-    end
-  end
-end
-
 function layout:cursorPosition(hand, raw)
+  hand = type(hand) == 'string' and hand or hand.path
   local offset = .075
   local direction = self.pool:vec3(lovr.math.orientationToDirection(lovr.headset.getOrientation(hand)))
   local position = self.pool:vec3(lovr.headset.getPosition(hand)):add(direction:mul(offset))
@@ -197,7 +210,7 @@ function layout:updateHovers()
     object.hovered = false
   end
 
-  for hand in lovr.headset.hands() do
+  for hand in pairs(self.hands) do
     local object = self:getClosestHover(hand)
 
     if self.hands[hand].hover ~= object then

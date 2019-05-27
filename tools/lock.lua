@@ -1,29 +1,29 @@
 local Lock = {}
 
-function Lock:checkDirection(controller, button)
-  return button == 'touchpad' and self.layout:touchpadDirection(controller) == 'up'
+function Lock:checkDirection(hand, button)
+  return button == 'touchpad' and self.layout:touchpadDirection(hand) == 'up'
 end
 
-function Lock:controllerpressed(controller, button)
-  local object = self.layout:getClosestHover(controller, true)
+function Lock:controllerpressed(hand, button)
+  local object = self.layout:getClosestHover(hand, true)
 
-  if self:checkDirection(controller, button) and object then
+  if self:checkDirection(hand, button) and object then
     self.target = object
-    controller:vibrate(.002)
+    lovr.headset.vibrate(hand, .002)
   end
 end
 
-function Lock:controllerreleased(controller, button)
-  local object = self.layout:getClosestHover(controller, true)
+function Lock:controllerreleased(hand, button)
+  local object = self.layout:getClosestHover(hand, true)
 
-  if self:checkDirection(controller, button) and object and object == self.target then
+  if self:checkDirection(hand, button) and object and object == self.target then
     self.layout:dispatch({
       type = 'setLocked',
       id = object.id,
       locked = not object.locked
     })
 
-    controller:vibrate(.001)
+    lovr.headset.vibrate(hand, .001)
     self.target = nil
   end
 end

@@ -6,13 +6,13 @@ Satchel.button = 'menu'
 
 function Satchel:init()
   self.active = false
-  self.controller = nil
+  self.hand = nil
   self.transform = lovr.math.mat4()
   self.yaw = 0
 end
 
 function Satchel:update(dt)
-  if self.active and self.controller then
+  if self.active and self.hand then
     self:updatePosition()
   end
 end
@@ -39,17 +39,17 @@ function Satchel:draw()
   lovr.graphics.flush()
 end
 
-function Satchel:controllerpressed(controller, button)
+function Satchel:controllerpressed(hand, button)
   if button == self.button then
     if self.active then
       self.active = false
-      self.controller = nil
+      self.hand = nil
     else
       self.active = true
-      self.controller = controller
+      self.hand = hand
     end
   elseif self.active and button == 'trigger' then
-    local controllerPosition = self.layout:cursorPosition(controller, true)
+    local controllerPosition = self.layout:cursorPosition(hand, true)
     for i, asset, ix, iy in self:items() do
       local itemPosition = self.layout.pool:vec3(self.transform:transformPoint(ix, iy, 0))
       if controllerPosition:distance(itemPosition) < self.itemSize / 2 then
@@ -74,7 +74,7 @@ function Satchel:controllerpressed(controller, button)
           -- This is a little hacky, but it's how we let grab know about the new object
           if self.layout.tools.grab then
             self.layout:updateHovers()
-            self.layout.tools.grab:controllerpressed(controller, button)
+            self.layout.tools.grab:controllerpressed(hand, button)
           end
 
           return
@@ -84,16 +84,16 @@ function Satchel:controllerpressed(controller, button)
   end
 end
 
-function Satchel:controllerreleased(controller, button)
-  if button == self.button and controller == self.controller then
+function Satchel:controllerreleased(hand, button)
+  if button == self.button and hand == self.hand then
     self:updatePosition()
-    self.controller = nil
+    self.hand = nil
   end
 end
 
-function Satchel:updatePosition(controller)
-  local controller = self.controller
-  local cursor = self.layout:cursorPosition(controller, true)
+function Satchel:updatePosition(hand)
+  local hand = self.hand
+  local cursor = self.layout:cursorPosition(hand, true)
   local cx, cy, cz = cursor:unpack()
   local hx, hy, hz = lovr.headset.getPosition()
   local angle, ax, ay, az = lovr.math.lookAt(hx, 0, hz, cx, 0, cz)

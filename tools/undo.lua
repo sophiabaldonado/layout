@@ -1,8 +1,8 @@
 local Undo = {}
 
-function Undo:controllerpressed(controller, button)
-  local isLeft = button == 'touchpad' and self.layout:touchpadDirection(controller) == 'left'
-  if isLeft and not self.layout.controllers[controller].hover then
+function Undo:controllerpressed(hand, button)
+  local isLeft = button == 'touchpad' and self.layout:touchpadDirection(hand) == 'left'
+  if isLeft and not self.layout.hands[hand].hover then
     self.layout:undo()
   end
 end

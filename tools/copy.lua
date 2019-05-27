@@ -1,23 +1,23 @@
 local Copy = {}
 
-function Copy:checkDirection(controller, button)
-  return button == 'touchpad' and self.layout:touchpadDirection(controller) == 'right'
+function Copy:checkDirection(hand, button)
+  return button == 'touchpad' and self.layout:touchpadDirection(hand) == 'right'
 end
 
-function Copy:controllerpressed(controller, button)
-  local object = self.layout.controllers[controller].hover
+function Copy:controllerpressed(hand, button)
+  local object = self.layout.hands[hand].hover
 
-  if self:checkDirection(controller, button) and object then
+  if self:checkDirection(hand, button) and object then
     self.target = object
-    controller:vibrate(.002)
+    lovr.headset.vibrate(hand, .002)
   end
 end
 
 function Copy:controllerreleased(controller, button)
-  local object = self.layout.controllers[controller].hover
+  local object = self.layout.hands[hand].hover
 
-  if self:checkDirection(controller, button) and object and object == self.target then
-    local x, y, z = self.layout:cursorPosition(controller):unpack()
+  if self:checkDirection(hand, button) and object and object == self.target then
+    local x, y, z = self.layout:cursorPosition(hand):unpack()
     local angle, ax, ay, az = object.rotation:unpack()
 
     self.layout:dispatch({
@@ -27,7 +27,7 @@ function Copy:controllerreleased(controller, button)
       angle = angle, ax = ax, ay = ay, az = az
     })
 
-    controller:vibrate(.001)
+    lovr.headset.vibrate(hand, .001)
     self.target = nil
   end
 end
