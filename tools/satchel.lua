@@ -1,4 +1,5 @@
 local Satchel = {}
+local vec3, mat4 = lovr.math.vec3, lovr.math.mat4
 
 Satchel.name = 'Satchel'
 Satchel.itemSize = .09
@@ -7,7 +8,7 @@ Satchel.button = 'menu'
 function Satchel:init()
   self.active = false
   self.hand = nil
-  self.transform = lovr.math.mat4()
+  self.transform = mat4()
   self.yaw = 0
 end
 
@@ -51,16 +52,16 @@ function Satchel:controllerpressed(hand, button)
   elseif self.active and button == 'trigger' then
     local controllerPosition = self.layout:cursorPosition(hand, true)
     for i, asset, ix, iy in self:items() do
-      local itemPosition = self.layout.pool:vec3(self.transform:transformPoint(ix, iy, 0))
+      local itemPosition = vec3(self.transform:transformPoint(ix, iy, 0))
       if controllerPosition:distance(itemPosition) < self.itemSize / 2 then
         local model = asset.model
         if model then
           local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
           local width, height, depth = maxx - minx, maxy - miny, maxz - minz
           local scale = self.itemSize / math.max(width, height, depth)
-          local origin = self.layout.pool:vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2):mul(scale)
+          local origin = vec3((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2):mul(scale)
 
-          local x, y, z = self.layout.transform:copy(self.layout.pool):invert():transformPoint(itemPosition:sub(origin))
+          local x, y, z = mat4(self.layout.transform):invert():transformPoint(itemPosition:sub(origin))
           local angle, ax, ay, az = self.yaw + lovr.timer.getTime() * .2, 0, 1, 0
 
           self.layout:dispatch({

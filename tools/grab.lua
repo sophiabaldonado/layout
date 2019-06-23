@@ -1,4 +1,5 @@
 local Grab = {}
+local vec3, quat = lovr.math.vec3, lovr.math.quat
 
 function Grab:init()
   self.grabs = {}
@@ -31,13 +32,13 @@ function Grab:update(dt)
       local otherCursor = self.layout:cursorPosition(other)
       local otherGrab = self.grabs[other]
 
-      local d1 = grab.lastPosition:copy(self.layout.pool):sub(otherGrab.lastPosition):normalize()
-      local d2 = cursor:copy(self.layout.pool):sub(otherCursor):normalize()
+      local d1 = vec3(grab.lastPosition):sub(otherGrab.lastPosition):normalize()
+      local d2 = vec3(cursor):sub(otherCursor):normalize()
       local angle = math.acos(d1:dot(d2))
       local axis = d1:cross(d2):normalize()
 
       if angle == angle then
-        local rotation = self.layout.pool:quat(angle, axis)
+        local rotation = quat(angle, axis)
         object.rotation:set(rotation:mul(object.rotation)):normalize()
       end
 
@@ -60,8 +61,8 @@ function Grab:controllerpressed(hand, button)
 
     self.grabs[hand] = {
       object = object,
-      offset = object.position:copy():sub(cursor):save(),
-      lastPosition = cursor:save(),
+      offset = vec3(object.position):sub(cursor),
+      lastPosition = vec3(cursor),
       distance = nil,
       bzz = 0
     }

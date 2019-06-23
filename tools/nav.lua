@@ -23,7 +23,7 @@ end
 function Nav:controllerpressed(hand, button)
   if button == 'grip' then
     self.navs[hand] = {
-      position = self.layout:cursorPosition(hand, true):save(),
+      position = self.layout:cursorPosition(hand, true),
       bzz = 0
     }
   end

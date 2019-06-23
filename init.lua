@@ -1,5 +1,6 @@
 local base = ((... or '') .. '/'):gsub('%.', '/'):gsub('/?init', ''):gsub('^/+', '')
 
+local vec3, quat, mat4 = lovr.math.vec3, lovr.math.quat, lovr.math.mat4
 local json = require('cjson')
 local actions = require(base .. 'actions')
 
@@ -7,12 +8,11 @@ local layout = {}
 
 function layout:init(filename, config)
   self.config = config or {}
-  self.pool = lovr.math.newPool(4194304, true)
   self.tools = self:glob('tools', { 'lua' }, true)
   self.assets = self:glob('assets', { 'lua', 'obj', 'gltf', 'glb' }, false)
   self.accents = self:glob('accents', { 'lua' }, true)
   self.hands = {}
-  self.transform = lovr.math.mat4()
+  self.transform = mat4()
   self:load(filename)
 end
 
@@ -73,8 +73,8 @@ function layout:sync()
         id = id,
         data = data,
         asset = self.assets[data.asset],
-        position = lovr.math.vec3(),
-        rotation = lovr.math.quat(),
+        position = vec3(),
+        rotation = quat(),
         scale = 1,
         locked = false,
         hovered = false
@@ -119,7 +119,7 @@ function layout:scale(...)
 end
 
 function layout:getTransform(transform)
-  return self.transform:copy()
+  return mat4(self.transform)
 end
 
 function layout:setTransform(transform)
@@ -128,7 +128,6 @@ end
 
 local buttons = { 'trigger', 'touchpad', 'grip', 'menu' }
 function layout:update(dt)
-  self.pool:drain()
   self:updateHovers()
 
   for path in lovr.headset.hands() do
@@ -200,9 +199,9 @@ end
 function layout:cursorPosition(hand, raw)
   hand = type(hand) == 'string' and hand or hand.path
   local offset = .075
-  local direction = self.pool:vec3(lovr.math.orientationToDirection(lovr.headset.getOrientation(hand)))
-  local position = self.pool:vec3(lovr.headset.getPosition(hand)):add(direction:mul(offset))
-  return raw and position or self.pool:vec3(self.pool:mat4(self.transform):invert():mul(position))
+  local direction = vec3(lovr.math.orientationToDirection(lovr.headset.getOrientation(hand)))
+  local position = vec3(lovr.headset.getPosition(hand)):add(direction:mul(offset))
+  return raw and position or mat4(self.transform):invert():mul(position)
 end
 
 function layout:updateHovers()
@@ -259,15 +258,15 @@ end
 function layout:getModelBox(model, scale)
   scale = scale or 1
   local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-  local min = self.pool:vec3(minx, miny, minz)
-  local max = self.pool:vec3(maxx, maxy, maxz)
-  local center = self.pool:vec3(max):add(min):mul(.5)
+  local min = vec3(minx, miny, minz)
+  local max = vec3(maxx, maxy, maxz)
+  local center = vec3(max):add(min):mul(.5)
   local size = max:sub(min)
   return center:mul(scale), size:mul(scale)
 end
 
 function layout:testPointBox(point, position, rotation, scale)
-  local transform = self.pool:mat4()
+  local transform = mat4()
   transform:translate(position)
   transform:rotate(rotation)
   transform:scale(scale)
