@@ -1,166 +1,312 @@
 local base = ((... or '') .. '/'):gsub('%.', '/'):gsub('/?init', ''):gsub('^/+', '')
 
-local vec3, quat, mat4 = lovr.math.vec3, lovr.math.quat, lovr.math.mat4
-local json = require('cjson')
-local actions = require(base .. 'actions')
+local function copy(x)
+  if type(x) ~= 'table' then
+    return x
+  else
+    local t = {}
+    for k, v in pairs(x) do
+      t[k] = copy(v)
+    end
+    return t
+  end
+end
 
 local layout = {}
 
-function layout:init(filename, config)
-  self.config = config or {}
-  self.tools = self:glob('tools', { 'lua' }, true)
-  self.assets = self:glob('assets', { 'lua', 'obj', 'gltf', 'glb' }, false)
-  self.accents = self:glob('accents', { 'lua' }, true)
-  self.hands = {}
-  self.transform = mat4()
-  self:load(filename)
+layout.loaders = {
+  {
+    match = { '%.gltf$', '%.glb' },
+    key = function(filename)
+      return filename:gsub('^/+', ''):gsub('%.%a+$', ''):gsub('/', '.')
+    end,
+    load = function(filename)
+      return { model = filename }
+    end
+  }
+}
+
+layout.properties = {
+  ['.'] = {
+    x = 'number',
+    y = 'number',
+    z = 'number',
+    sx = { type = 'number', default = 1 },
+    sy = { type = 'number', default = 1 },
+    sz = { type = 'number', default = 1 },
+    angle = 'number',
+    ax = 'number',
+    ay = 'number',
+    az = 'number',
+    locked = { type = 'boolean', default = false }
+  }
+}
+
+-- Model
+local Model = {}
+
+function Model:init()
+  self.models = {}
+
+  self.thread = lovr.thread.newThread [[
+    data = require 'lovr.data'
+    thread = require 'lovr.thread'
+    inbox = thread.getChannel('layout.tools.model.requests')
+    outbox = thread.getChannel('layout.tools.model.responses')
+
+    while true do
+      local filename = inbox:pop(true)
+      local model = data.newModelData(filename)
+      outbox:push(filename)
+      outbox:push(model, false)
+    end
+  ]]
+
+  self.thread:start()
+  self.inbox = lovr.thread.getChannel('layout.tools.model.responses')
+  self.outbox = lovr.thread.getChannel('layout.tools.model.requests')
 end
 
-function layout:save(filename)
-  filename = filename or self.filename
-  if not filename then return false end
-  return lovr.filesystem.write(filename, json.encode(self.state))
-end
-
-function layout:load(filename)
-  local file = lovr.filesystem.read(filename)
-  self.state = filename and lovr.filesystem.isFile(filename) and json.decode(file) or {}
-  self.state.objects = self.state.objects or {}
-  self.history = { undo = {}, redo = {} }
-  self.filename = filename
-  self.objects = {}
-  self:sync()
-end
-
-function layout:dispatch(action)
-  assert(actions[action.type], string.format('No handler for action %q', action.type or 'nil'))
-  local state = actions[action.type](self.state, action, self.history)
-
-  if self.state ~= state then
-    table.insert(self.history.undo, self.state)
-    self.history.redo = {}
-    self.state = state
-    self:sync()
+function Model:update(dt)
+  while self.inbox:peek() do
+    local filename = self.inbox:pop()
+    local modelData = self.inbox:pop(true)
+    self.models[filename] = lovr.graphics.newModel(modelData)
   end
 end
 
-function layout:undo()
-  if #self.history.undo > 0 then
-    table.insert(self.history.redo, self.state)
-    self.state = table.remove(self.history.undo)
-    self:sync()
+function Model:getModel(filename)
+  if not filename then return end
+
+  if self.models[filename] ~= nil then
+    return self.models[filename]
+  end
+
+  self.outbox:push(filename)
+  self.models[filename] = false
+  return self.models[filename]
+end
+
+-- Satchel
+local Satchel = {}
+Satchel.itemSize = .09
+
+function Satchel:init()
+  self.active = true
+  self.transform = lovr.math.newMat4():translate(0, 1, -1)
+  self.assetList = {}
+
+  local group = self.layout:addObject('layout.group')
+  group.x, group.y, group.z = 0, 1, -3
+  group.angle, group.ax, group.ay, group.az = 0, 0, 0, 0
+  table.insert(self.layout.objects, group)
+  local i = 0
+  for key, asset in pairs(self.layout.assets) do
+    table.insert(self.assetList, asset)
+    local object = self.layout:addObject(key)
+    object.x = i
+    object.angle, object.ax, object.ay, object.az = 0, 0, 0, 0
+    table.insert(group.objects, object)
+    i = i + 1
   end
 end
 
-function layout:redo()
-  if #self.history.redo > 0 then
-    table.insert(self.history.undo, self.state)
-    self.state = table.remove(self.history.redo)
-    self:sync()
+function Satchel:draw()
+  if not self.active then return end
+
+  lovr.graphics.push()
+  lovr.graphics.transform(self.transform)
+  lovr.graphics.setColor(1, 1, 1)
+
+  for i, asset, x, y in self:items() do
+    local model = asset.model and self.layout.tools.model:getModel(asset.model)
+    if model then
+      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+      local width, height, depth = maxx - minx, maxy - miny, maxz - minz
+      local scale = self.itemSize / math.max(width, height, depth)
+      local cx, cy, cz = (minx + maxx) / 2 * scale, (miny + maxy) / 2 * scale, (minz + maxz) / 2 * scale
+      model:draw(x - cx, y - cy, 0 - cz, scale, lovr.timer.getTime() * .2, 0, 1, 0)
+    end
+  end
+
+  lovr.graphics.pop()
+end
+
+function Satchel:items()
+  local count = #self.assetList
+  local spacing = self.itemSize * 2
+  local perRow = math.ceil(math.sqrt(count))
+  local rows = math.ceil(count / perRow)
+  local i = 0
+
+  return function()
+    i = i + 1
+    local asset = self.assetList[i]
+    if not asset then return end
+    local col = 1 + ((i - 1) % perRow)
+    local row = math.ceil(i / perRow)
+    local x = -spacing * (perRow - 1) / 2 + spacing * (col - 1)
+    local y = spacing * (rows - 1) / 2 - spacing * (row - 1)
+    return i, asset, x, y
   end
 end
 
-function layout:sync()
-  local lookup = {}
+-- Render
+local Render = {}
 
-  -- Add objects in the level that we don't know about
-  for _, data in ipairs(self.state.objects) do
-    local id = data.id
+function Render:draw()
+  local function render(o)
+    lovr.graphics.push()
+    lovr.graphics.transform(o.x, o.y, o.z, o.sx, o.sy, o.sz, o.angle, o.ax, o.ay, o.az)
 
-    if not self.objects[id] then
-      assert(self.assets[data.asset], string.format('Missing asset %q', data.asset or 'nil'))
-      self.objects[id] = setmetatable({
-        id = id,
-        data = data,
-        asset = self.assets[data.asset],
-        position = vec3(),
-        rotation = quat(),
-        scale = 1,
-        locked = false,
-        hovered = false
-      }, self.assets[data.asset])
+    local model = self.layout.tools.model:getModel(o.model)
+
+    if model then
+      model:draw()
     end
 
-    local object = self.objects[id]
-    object.data = data
-    object.position:set(data.x, data.y, data.z)
-    object.rotation:set(data.angle, data.ax, data.ay, data.az)
-    object.scale = data.scale
-    object.locked = data.locked
-    lookup[id] = true
-  end
-
-  -- Remove objects that aren't in the level anymore
-  for id in pairs(self.objects) do
-    if not lookup[id] then
-      for _, hand in pairs(self.hands) do
-        if hand.hover == self.objects[id] then
-          hand.hover = nil
-        end
+    if o.objects then
+      for i, child in ipairs(o.objects) do
+        render(child)
       end
-
-      self.objects[id] = nil
     end
+
+    lovr.graphics.pop()
   end
 
-  self:save()
+  for _, o in ipairs(self.layout.objects) do
+    render(o)
+  end
 end
 
-function layout:translate(...)
-  self.transform:translate(...)
+-- Cursor
+local Cursor = {}
+
+function Cursor:getPosition(hand)
+  if not lovr.headset.isTracked(hand) then
+    return vec3(0)
+  end
+
+  local x, y, z, angle, ax, ay, az = lovr.headset.getPose(hand)
+  local position = vec3(x, y, z)
+  local direction = vec3(quat(angle, ax, ay, az):direction())
+  local offset = .075
+  return position:add(direction:mul(offset))
 end
 
-function layout:rotate(...)
-  self.transform:rotate(...)
+function Cursor:draw()
+  for _, hand in ipairs(lovr.headset.getHands()) do
+    lovr.graphics.cube('fill', self:getPosition(hand), .01)
+  end
 end
 
-function layout:scale(...)
-  self.transform:scale(...)
+-- Outline
+local Outline = {}
+
+function Outline:draw()
+  local function render(o) -- TODO this looks suspiciously similar to Render:draw
+    lovr.graphics.push()
+    lovr.graphics.transform(o.x, o.y, o.z, o.sx, o.sy, o.sz, o.angle, o.ax, o.ay, o.az)
+
+    local model = self.layout.tools.model:getModel(o.model)
+    if model then
+      local scale = vec3(o.sx, o.sy, o.sz)
+      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+      local min = vec3(minx, miny, minz)
+      local max = vec3(maxx, maxy, maxz)
+      local center = vec3(max):add(min):mul(.5):mul(scale)
+      local size = max:sub(min):mul(scale)
+      lovr.graphics.box('line', center, size)
+    else
+      -- TODO hi I am probably a group or some other weird asset, what should I do?
+    end
+
+    if o.objects then
+      for _, child in ipairs(o.objects) do
+        render(child)
+      end
+    end
+
+    lovr.graphics.pop()
+  end
+
+  for _, o in ipairs(self.layout.objects) do
+    render(o)
+  end
 end
 
-function layout:getTransform(transform)
-  return mat4(self.transform)
-end
+layout.tools = {
+  model = Model,
+  satchel = Satchel,
+  render = Render,
+  cursor = Cursor,
+  outline = Outline
+}
 
-function layout:setTransform(transform)
-  self.transform:set(transform)
-end
+function layout:init(config)
+  for key, tool in pairs(config.tools or {}) do
+    self.tools[key] = tool or nil
+  end
 
-local buttons = { 'trigger', 'touchpad', 'grip', 'menu' }
-function layout:update(dt)
-  self:updateHovers()
+  for i, loader in ipairs(config.loaders or {}) do
+    table.insert(self.loaders, loader)
+  end
 
-  for path in lovr.headset.hands() do
-    self.hands[path] = self.hands[path] or {
-      path = hand,
-      hover = nil,
-      lastButtons = {}
+  self.assets = {
+    ['layout.group'] = {
+      properties = {
+        objects = { type = 'table', default = {} }
+      }
     }
+  }
 
-    local hand = self.hands[path]
-
-    -- Emulated controller events
-    for i, button in ipairs(buttons) do
-      local wasDown = hand.lastButtons[button]
-      local isDown = lovr.headset.isDown(path, button)
-      if not wasDown and isDown then
-        for _, tool in ipairs(self.tools) do
-          if tool.controllerpressed then
-            tool:controllerpressed(path, button)
-          end
-        end
-      elseif wasDown and not isDown then
-        for _, tool in ipairs(self.tools) do
-          if tool.controllerreleased then
-            tool:controllerreleased(path, button)
+  local function glob(dir)
+    for i, file in ipairs(lovr.filesystem.getDirectoryItems(dir)) do
+      local path = dir .. '/' .. file
+      if lovr.filesystem.isDirectory(path) then
+        glob(path)
+      else
+        for _, loader in ipairs(self.loaders) do
+          for _, pattern in ipairs(loader.match) do
+            if path:match(pattern) then
+              -- TODO merge data into asset if it already exists
+              self.assets[loader.key(path:gsub(config.root, '', 1))] = loader.load(path)
+            end
           end
         end
       end
-      hand.lastButtons[button] = isDown
     end
   end
 
-  for _, tool in ipairs(self.tools) do
+  glob(config.root)
+
+  for key, asset in pairs(self.assets) do
+    asset.properties = asset.properties or {}
+
+    -- TODO loop over patterns in shortest-to-longest match order for proper inheritance
+    for pattern, properties in pairs(layout.properties) do
+      if key:match(pattern) then
+        for property, info in pairs(properties) do
+          info = type(info) == 'string' and { type = info } or info
+          asset.properties[property] = info
+        end
+      end
+    end
+  end
+
+  self.objects = {}
+
+  for _, tool in pairs(self.tools) do
+    tool.layout = self
+
+    if tool.init then
+      tool:init()
+    end
+  end
+end
+
+function layout:update(dt)
+  for _, tool in pairs(self.tools) do
     if tool.update then
       tool:update(dt)
     end
@@ -168,169 +314,20 @@ function layout:update(dt)
 end
 
 function layout:draw()
-  lovr.graphics.push()
-  lovr.graphics.transform(self.transform)
-
-  for _, object in pairs(self.objects) do
-    if object.draw then
-      object:draw()
-    end
-
-    for _, accent in ipairs(self.accents) do
-      if not accent.filter or accent:filter(object) then
-        accent:draw(object)
-      end
-    end
-  end
-
-  lovr.graphics.pop()
-
-  for _, tool in ipairs(self.tools) do
+  for _, tool in pairs(self.tools) do
     if tool.draw then
       tool:draw()
     end
   end
-
-  for hand in lovr.headset.hands() do
-    lovr.graphics.cube('fill', self:cursorPosition(hand, true), .01)
-  end
 end
 
-function layout:cursorPosition(hand, raw)
-  hand = type(hand) == 'string' and hand or hand.path
-  local offset = .075
-  local direction = vec3(lovr.math.orientationToDirection(lovr.headset.getOrientation(hand)))
-  local position = vec3(lovr.headset.getPosition(hand)):add(direction:mul(offset))
-  return raw and position or mat4(self.transform):invert():mul(position)
-end
-
-function layout:updateHovers()
-  for _, object in pairs(self.objects) do
-    object.hovered = false
+function layout:addObject(kind)
+  local asset = self.assets[kind]
+  local object = setmetatable({}, { __index = asset }) -- TODO don't create a new metatable for every instance
+  for property, info in pairs(asset.properties) do
+    object[property] = copy(info.default)
   end
-
-  for hand in pairs(self.hands) do
-    local object = self:getClosestHover(hand)
-
-    if self.hands[hand].hover ~= object then
-      lovr.headset.vibrate(hand, object and .001 or .0005)
-      self.hands[hand].hover = object
-    end
-
-    if object then
-      object.hovered = true
-    end
-  end
-end
-
-function layout:getClosestHover(hand, lockpick)
-  local cursor = self:cursorPosition(hand)
-  local distance, closest = math.huge, nil
-
-  for _, object in pairs(self.objects) do
-    if not object.locked or lockpick then
-      local d = cursor:distance(object.position)
-      if d < distance and self:isHovered(object, hand) then
-        distance = d
-        closest = object
-      end
-    end
-  end
-
-  return closest, distance
-end
-
-function layout:isHovered(object, hand)
-  if not object.asset.model then return false end
-
-  local hands = hand and { [hand] = self.hands[hand] } or self.hands
-  local center, size = self:getModelBox(object.asset.model, object.scale)
-
-  for h in pairs(hands) do
-    if self:testPointBox(self:cursorPosition(h), object.position + center, object.rotation, size) then
-      return h
-    end
-  end
-
-  return false
-end
-
-function layout:getModelBox(model, scale)
-  scale = scale or 1
-  local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-  local min = vec3(minx, miny, minz)
-  local max = vec3(maxx, maxy, maxz)
-  local center = vec3(max):add(min):mul(.5)
-  local size = max:sub(min)
-  return center:mul(scale), size:mul(scale)
-end
-
-function layout:testPointBox(point, position, rotation, scale)
-  local transform = mat4()
-  transform:translate(position)
-  transform:rotate(rotation)
-  transform:scale(scale)
-  transform:invert()
-  x, y, z = transform:mul(point):unpack()
-  return x >= -.5 and y >= -.5 and z >= -.5 and x <= .5 and y <= .5 and z <= .5
-end
-
-function layout:touchpadDirection(hand)
-  if not lovr.headset.isTouched(hand, 'touchpad') then return nil end
-  local x, y = lovr.headset.getAxis(hand, 'touchpad')
-  local angle = math.atan2(y, x)
-  local quadrant = math.floor((angle % (2 * math.pi) + (math.pi / 4)) / (math.pi / 2))
-  return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[quadrant]
-end
-
-function layout:glob(kind, extensions, instantiate)
-  local result = {}
-
-  local loaders = {
-    lua = function(path) return select(2, assert(pcall(select(2, assert(pcall(lovr.filesystem.load, path)))))) end, -- haha
-    obj = function(path) return { model = lovr.graphics.newModel(path) } end,
-    gltf = function(path) return { model = lovr.graphics.newModel(path) } end,
-    glb = function(path) return { model = lovr.graphics.newModel(path) } end
-  }
-
-  local exts = {}
-  for i, ext in ipairs(extensions) do exts[ext] = true end
-
-  local function loadItem(path, key)
-    if type(path) == 'table' then
-      key = key or (kind:gsub('^%a', string.upper):gsub('s$', '') .. ' ' .. #result)
-      local instance = instantiate and setmetatable({ layout = self }, { __index = path }) or path
-      if not instantiate then instance.__index = instance end
-      instance.key = key
-      result[key] = instance
-      table.insert(result, instance)
-      if instance.init then instance:init() end
-    elseif lovr.filesystem.isFile(path) then
-      local ext = path:match('%.(%a+)$')
-      if loaders[ext] and exts[ext] then
-        loadItem(loaders[ext](path), key)
-      end
-    elseif lovr.filesystem.isDirectory(path) then
-      for _, file in ipairs(lovr.filesystem.getDirectoryItems(path)) do
-        if not file:match('^%.') then
-          loadItem(path .. '/' .. file, key .. (#key > 0 and '.' or '') .. file:gsub('%.%a+$', ''))
-        end
-      end
-    end
-  end
-
-  self.config[kind] = self.config[kind] or {}
-  if type(self.config[kind]) == 'string' then self.config[kind] = { self.config[kind] } end
-
-  if lovr.filesystem.isDirectory(base .. kind) then
-    table.insert(self.config[kind], 1, base .. kind)
-  end
-
-  for i, path in ipairs(self.config[kind]) do
-    loadItem(path, '')
-  end
-
-  return result
+  return object
 end
 
 return layout
