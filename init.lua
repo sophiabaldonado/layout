@@ -198,11 +198,14 @@ end
 local Camera = {}
 
 function Camera:init()
-  self.transform = lovr.math.newMat4()
+  self.matrix = lovr.math.newMat4()
+  self.inverse = lovr.math.newMat4()
+  self.invert = true
 end
 
 function Camera:push()
-  lovr.graphics.push(self.transform)
+  lovr.graphics.push()
+  lovr.graphics.transform(self.matrix)
 end
 
 function Camera:pop()
@@ -210,15 +213,31 @@ function Camera:pop()
 end
 
 function Camera:move(...)
-  self.transform:translate(...)
+  self.matrix:translate(...)
+  self.invert = true
 end
 
 function Camera:rotate(...)
-  self.transform:rotate(...)
+  self.matrix:rotate(...)
+  self.invert = true
 end
 
-function Camera:scale(...)
-  self.transform:scale(...)
+function Camera:scale(factor)
+  self.matrix:scale(factor)
+  self.invert = true
+end
+
+function Camera:transform(...)
+  return self.matrix:mul(...)
+end
+
+function Camera:untransform(...)
+  if self.invert then
+    self.inverse:set(self.matrix):invert()
+    self.invert = false
+  end
+
+  return self.inverse:mul(...)
 end
 
 
