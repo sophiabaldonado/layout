@@ -152,8 +152,18 @@ function Render:draw()
     lovr.graphics.pop()
   end
 
+  local camera = self.layout.tools.camera
+
+  if camera then
+    camera:push()
+  end
+
   for _, o in ipairs(self.layout.objects) do
     render(o)
+  end
+
+  if camera then
+    camera:pop()
   end
 end
 
@@ -179,6 +189,36 @@ function Cursor:draw()
   for _, hand in ipairs(lovr.headset.getHands()) do
     lovr.graphics.cube('fill', self:getPosition(hand), .01)
   end
+end
+
+
+----------------
+-- Camera
+----------------
+local Camera = {}
+
+function Camera:init()
+  self.transform = lovr.math.newMat4()
+end
+
+function Camera:push()
+  lovr.graphics.push(self.transform)
+end
+
+function Camera:pop()
+  lovr.graphics.pop()
+end
+
+function Camera:move(...)
+  self.transform:translate(...)
+end
+
+function Camera:rotate(...)
+  self.transform:rotate(...)
+end
+
+function Camera:scale(...)
+  self.transform:scale(...)
 end
 
 
@@ -214,8 +254,18 @@ function Outline:draw()
     lovr.graphics.pop()
   end
 
+  local camera = self.layout.tools.camera
+
+  if camera then
+    camera:push()
+  end
+
   for _, o in ipairs(self.layout.objects) do
     render(o)
+  end
+
+  if camera then
+    camera:pop()
   end
 end
 
