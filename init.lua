@@ -309,6 +309,7 @@ function layout:init(config)
     satchel = Satchel,
     render = Render,
     cursor = Cursor,
+    camera = Camera,
     outline = Outline
   }
 
