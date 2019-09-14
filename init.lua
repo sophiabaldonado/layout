@@ -12,37 +12,9 @@ local function copy(x)
   end
 end
 
-local layout = {}
-
-layout.loaders = {
-  {
-    match = { '%.gltf$', '%.glb' },
-    key = function(filename)
-      return filename:gsub('^/+', ''):gsub('%.%a+$', ''):gsub('/', '.')
-    end,
-    load = function(filename)
-      return { model = filename }
-    end
-  }
-}
-
-layout.properties = {
-  ['.'] = {
-    x = 'number',
-    y = 'number',
-    z = 'number',
-    sx = { type = 'number', default = 1 },
-    sy = { type = 'number', default = 1 },
-    sz = { type = 'number', default = 1 },
-    angle = 'number',
-    ax = 'number',
-    ay = 'number',
-    az = 'number',
-    locked = { type = 'boolean', default = false }
-  }
-}
-
+----------------
 -- Model
+----------------
 local Model = {}
 
 function Model:init()
@@ -87,7 +59,10 @@ function Model:getModel(filename)
   return self.models[filename]
 end
 
+
+----------------
 -- Satchel
+----------------
 local Satchel = {}
 Satchel.itemSize = .09
 
@@ -151,7 +126,10 @@ function Satchel:items()
   end
 end
 
+
+----------------
 -- Render
+----------------
 local Render = {}
 
 function Render:draw()
@@ -179,7 +157,10 @@ function Render:draw()
   end
 end
 
+
+----------------
 -- Cursor
+----------------
 local Cursor = {}
 
 function Cursor:getPosition(hand)
@@ -200,7 +181,10 @@ function Cursor:draw()
   end
 end
 
+
+----------------
 -- Outline
+----------------
 local Outline = {}
 
 function Outline:draw()
@@ -235,15 +219,49 @@ function Outline:draw()
   end
 end
 
-layout.tools = {
-  model = Model,
-  satchel = Satchel,
-  render = Render,
-  cursor = Cursor,
-  outline = Outline
-}
+
+----------------
+-- Layout!
+----------------
+local layout = {}
 
 function layout:init(config)
+  self.loaders = {
+    {
+      match = { '%.gltf$', '%.glb' },
+      key = function(filename)
+        return filename:gsub('^/+', ''):gsub('%.%a+$', ''):gsub('/', '.')
+      end,
+      load = function(filename)
+        return { model = filename }
+      end
+    }
+  }
+
+  self.properties = {
+    ['.'] = {
+      x = 'number',
+      y = 'number',
+      z = 'number',
+      sx = { type = 'number', default = 1 },
+      sy = { type = 'number', default = 1 },
+      sz = { type = 'number', default = 1 },
+      angle = 'number',
+      ax = 'number',
+      ay = 'number',
+      az = 'number',
+      locked = { type = 'boolean', default = false }
+    }
+  }
+
+  self.tools = {
+    model = Model,
+    satchel = Satchel,
+    render = Render,
+    cursor = Cursor,
+    outline = Outline
+  }
+
   for key, tool in pairs(config.tools or {}) do
     self.tools[key] = tool or nil
   end
@@ -284,6 +302,7 @@ function layout:init(config)
     asset.properties = asset.properties or {}
 
     -- TODO loop over patterns in shortest-to-longest match order for proper inheritance
+    -- TODO merge config.properties into layout/self .properties
     for pattern, properties in pairs(layout.properties) do
       if key:match(pattern) then
         for property, info in pairs(properties) do
