@@ -186,9 +186,14 @@ function Cursor:getPosition(hand)
 end
 
 function Cursor:draw()
+  local shader = lovr.graphics.getShader()
+  lovr.graphics.setShader()
   for _, hand in ipairs(lovr.headset.getHands()) do
-    lovr.graphics.cube('fill', self:getPosition(hand), .01)
+    lovr.graphics.setColor(0xffffff)
+    lovr.graphics.setPointSize(7)
+    lovr.graphics.points(self:getPosition(hand))
   end
+  lovr.graphics.setShader(shader)
 end
 
 
