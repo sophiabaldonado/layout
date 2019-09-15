@@ -375,6 +375,7 @@ function layout:init(config)
 
   for key, asset in pairs(self.assets) do
     asset.properties = asset.properties or {}
+    asset.key = key
 
     -- TODO loop over patterns in shortest-to-longest match order for proper inheritance
     -- TODO merge config.properties into layout/self .properties
