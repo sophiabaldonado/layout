@@ -157,10 +157,15 @@ function Render:draw()
   if camera then
     camera:push()
   end
+  
+  local shader = lovr.graphics.getShader()
+  lovr.graphics.setShader(self.shader)
 
   for _, o in ipairs(self.layout.objects) do
     render(o)
   end
+
+  lovr.graphics.setShader(shader)
 
   if camera then
     camera:pop()
@@ -185,12 +190,51 @@ function Cursor:getPosition(hand)
   return position:add(direction:mul(offset))
 end
 
+function Cursor:getHover(hand)
+  local cursor = self:getPosition(hand)
+  local camera = self.layout.tools.camera
+  local distance, closest = math.huge, nil
+  local transform = mat4()
+  
+  if camera then camera:untransform(cursor) end
+
+  for _, object in ipairs(self.layout.objects) do
+    local model = object.model and self.layout.tools.model:getModel(object.model)
+    if model and not object.locked then
+      local position = vec3(object.x, object.y, object.z)
+      local scale = vec3(object.sx, object.sy, object.sz)
+      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+      local min = vec3(minx, miny, minz)
+      local max = vec3(maxx, maxy, maxz)
+      local center = vec3(max):add(min):mul(.5):mul(scale)
+      local size = max:sub(min):mul(scale)
+
+      local d = cursor:distance(center)
+      if d < distance then
+        transform:identity()
+        transform:translate(position + center)
+        transform:rotate(object.angle, object.ax, object.ay, object.az)
+        transform:scale(size)
+        transform:invert()
+        local cx, cy, cz = transform:mul(vec3(cursor)):unpack()
+        local hovered = math.abs(cx) <= .5 and math.abs(cy) <= .5 and math.abs(cz) <= .5
+        if hovered then
+          distance = d
+          closest = object
+        end
+      end
+    end
+  end
+
+  return closest, distance
+end
+
 function Cursor:draw()
   local shader = lovr.graphics.getShader()
   lovr.graphics.setShader()
   for _, hand in ipairs(lovr.headset.getHands()) do
     lovr.graphics.setColor(0xffffff)
-    lovr.graphics.setPointSize(7)
+    lovr.graphics.setPointSize(15)
     lovr.graphics.points(self:getPosition(hand))
   end
   lovr.graphics.setShader(shader)
@@ -258,12 +302,11 @@ function Outline:draw()
 
     local model = self.layout.tools.model:getModel(o.model)
     if model then
-      local scale = vec3(o.sx, o.sy, o.sz)
       local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
       local min = vec3(minx, miny, minz)
       local max = vec3(maxx, maxy, maxz)
-      local center = vec3(max):add(min):mul(.5):mul(scale)
-      local size = max:sub(min):mul(scale)
+      local center = vec3(max):add(min):mul(.5)
+      local size = max:sub(min)
       lovr.graphics.box('line', center, size)
     else
       -- TODO hi I am probably a group or some other weird asset, what should I do?
