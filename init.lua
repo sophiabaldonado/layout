@@ -74,14 +74,12 @@ function Satchel:init()
   local group = self.layout:addObject('layout.group')
   group.x, group.y, group.z = 0, 1, -3
   group.angle, group.ax, group.ay, group.az = 0, 0, 0, 0
-  table.insert(self.layout.objects, group)
   local i = 0
   for key, asset in pairs(self.layout.assets) do
     table.insert(self.assetList, asset)
-    local object = self.layout:addObject(key)
+    local object = self.layout:addObject(key, group)
     object.x = i
     object.angle, object.ax, object.ay, object.az = 0, 0, 0, 0
-    table.insert(group.objects, object)
     i = i + 1
   end
 end
@@ -459,12 +457,16 @@ function layout:draw()
   end
 end
 
-function layout:addObject(kind)
+function layout:addObject(kind, parent)
+  parent = parent or self
+
   local asset = self.assets[kind]
   local object = setmetatable({}, { __index = asset }) -- TODO don't create a new metatable for every instance
   for property, info in pairs(asset.properties) do
     object[property] = copy(info.default)
   end
+
+  table.insert(parent.objects, object)
   return object
 end
 
