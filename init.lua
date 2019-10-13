@@ -176,6 +176,11 @@ end
 ----------------
 local Cursor = {}
 
+function Cursor:init()
+  self.hovered = setmetatable({}, { __mode = 'k' })
+  self.hoverHands = setmetatable({}, { __mode = 'v' })
+end
+
 function Cursor:getPosition(hand)
   if not lovr.headset.isTracked(hand) then
     return vec3(0)
@@ -188,54 +193,54 @@ function Cursor:getPosition(hand)
   return position:add(direction:mul(offset))
 end
 
+function Cursor:isHovered(object)
+  return self.hovered[object]
+end
+
 function Cursor:getHover(hand)
-  local cursor = self:getPosition(hand)
-  local camera = self.layout.tools.camera
-  local distance, closest = math.huge, nil
-  local transform = mat4()
-  
-  if camera then camera:untransform(cursor) end
+  return self.hoverHands[hand]
+end
 
-  for _, object in ipairs(self.layout.objects) do
-    local model = object.model and self.layout.tools.model:getModel(object.model)
-    if model and not object.locked then
-      local position = vec3(object.x, object.y, object.z)
-      local scale = vec3(object.sx, object.sy, object.sz)
-      local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
-      local min = vec3(minx, miny, minz)
-      local max = vec3(maxx, maxy, maxz)
-      local center = vec3(max):add(min):mul(.5):mul(scale)
-      local size = max:sub(min):mul(scale)
+function Cursor:update(dt)
+  for object in pairs(self.hovered) do
+    self.hovered[object] = nil
+  end
 
-      local d = cursor:distance(center)
-      if d < distance then
-        transform:identity()
-        transform:translate(position + center)
-        transform:rotate(object.angle, object.ax, object.ay, object.az)
-        transform:scale(size)
+  for i, hand in ipairs(lovr.headset.getHands()) do
+    local cursor = self:getPosition(hand)
+    local camera = self.layout.tools.camera
+    local distance, closest = math.huge, nil
+    local transform = mat4()
+
+    if camera then camera:untransform(cursor) end
+
+    for _, o in ipairs(self.layout.objects) do
+      local model = o.model and self.layout.tools.model:getModel(o.model)
+      if model and not o.locked then
+        transform:set(o.x, o.y, o.z, o.sx, o.sy, o.sz, o.angle, o.ax, o.ay, o.az)
         transform:invert()
         local cx, cy, cz = transform:mul(vec3(cursor)):unpack()
-        local hovered = math.abs(cx) <= .5 and math.abs(cy) <= .5 and math.abs(cz) <= .5
-        if hovered then
+
+        local minx, maxx, miny, maxy, minz, maxz = model:getAABB()
+        local hovered = cx >= minx and cy >= miny and cz >= minz and cx <= maxx and cy <= maxy and cz <= maxz
+        local d = hovered and vec3(cx, cy, cz):distance((vec3(minx, miny, minz) + vec3(maxx, maxy, maxz)) / 2)
+        if hovered and d < distance then
           distance = d
-          closest = object
+          closest = o
         end
       end
     end
-  end
 
-  return closest, distance
+    if closest then self.hovered[closest] = distance end
+    self.hoverHands[hand] = closest
+  end
 end
 
 function Cursor:draw()
-  local shader = lovr.graphics.getShader()
-  lovr.graphics.setShader()
+  lovr.graphics.setColor(0xffffff)
   for _, hand in ipairs(lovr.headset.getHands()) do
-    lovr.graphics.setColor(0xffffff)
-    lovr.graphics.setPointSize(15)
-    lovr.graphics.points(self:getPosition(hand))
+    lovr.graphics.cube('fill', vec3(self:getPosition(hand)), .0075, lovr.headset.getOrientation(hand))
   end
-  lovr.graphics.setShader(shader)
 end
 
 
@@ -305,6 +310,8 @@ function Outline:draw()
       local max = vec3(maxx, maxy, maxz)
       local center = vec3(max):add(min):mul(.5)
       local size = max:sub(min)
+      local alpha = self.layout.tools.cursor and self.layout.tools.cursor:isHovered(o) and 1 or .5
+      lovr.graphics.setColor(1, 1, 1, alpha)
       lovr.graphics.box('line', center, size)
     else
       -- TODO hi I am probably a group or some other weird asset, what should I do?
