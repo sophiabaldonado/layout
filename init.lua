@@ -202,6 +202,10 @@ function Cursor:getHover(hand)
 end
 
 function Cursor:update(dt)
+  self:refresh()
+end
+
+function Cursor:refresh()
   for object in pairs(self.hovered) do
     self.hovered[object] = nil
   end
