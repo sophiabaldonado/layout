@@ -415,7 +415,7 @@ function layout:init(config)
           for _, pattern in ipairs(loader.match) do
             if path:match(pattern) then
               -- TODO merge data into asset if it already exists
-              self.assets[loader.key(path:gsub(config.root, '', 1))] = loader.load(path)
+              self.assets[loader.key(path:gsub(config.root, '', 1))] = loader.load(path) or nil
             end
           end
         end
