@@ -35,6 +35,7 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Layout ${{ github.ref }}
+          body: ${{ github.ref }}
           draft: false
           prerelease: false
 
