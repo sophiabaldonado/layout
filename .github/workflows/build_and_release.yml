@@ -1,0 +1,45 @@
+name: CI
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ release ]
+  pull_request:
+    branches: [ release ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Fetch lovr exe
+        run: |
+          curl https://lovr.org/download -L -o lovr.zip
+          unzip lovr.zip
+
+      - name: Package Layout
+        run: |
+          cd src
+          zip -9qr layout.lovr .
+          cat ../lovr/lovr.exe layout.lovr > layout.exe
+          cd ..
+          rm lovr/lovr.exe
+          mv src/layout.exe lovr/
+          mv lovr/ layout/
+          zip -9qr layout.zip layout/
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Layout ${{ github.ref }}
+          draft: false
+          prerelease: false
