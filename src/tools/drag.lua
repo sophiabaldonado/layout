@@ -1,7 +1,5 @@
 -- What a drag
 
-local maf = require 'maf'
-
 local Drag = {}
 
 Drag.name = 'Drag'
@@ -47,14 +45,14 @@ function Drag:use(controller, entity, dt)
   -- Bzz every .1m
   drag.bzz = drag.bzz + math.sqrt(dx ^ 2 + dy ^ 2 + dz ^ 2)
   if drag.bzz >= .1 then
-    self.layout:vibrate(controller, .001)
+    self.layout:vibrate(controller, 1, .001)
     drag.bzz = 0
   end
 end
 
 function Drag:stop(controller, entity)
   local v = self.drags[controller].velocity
-  if math.sqrt(maf.vec3(v.x, v.y, v.z):length()) > .75 then
+  if math.sqrt(vec3(v.x, v.y, v.z):length()) > .75 then
     entity.vx, entity.vy, entity.vz = v.x, v.y, v.z
   end
 

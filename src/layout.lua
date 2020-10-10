@@ -1,5 +1,4 @@
 local json = require 'cjson'
-local maf = require 'maf'
 
 local base = (...):match('^(.*[%./])[^%.%/]+$') or ''
 local dot = base:match('%.') and '.' or '/'
@@ -84,13 +83,31 @@ function layout:init(config)
 end
 
 function layout:update(dt)
+  local buttons = {
+    'trigger',
+    'thumbstick',
+    'touchpad',
+    'grip',
+    'a',
+    'b'
+  }
+
+  for _, controller in ipairs(self.controllers) do
+    for _, button in ipairs(buttons) do
+      if lovr.headset.wasPressed(controller, button) then
+        self:controllerpressed(controller, button)
+      elseif lovr.headset.wasReleased(controller, button) then
+        self:controllerreleased(controller, button)
+      end
+    end
+  end
 
   -- Update hover state
   for _, controller in ipairs(self.controllers) do
     local hover = self:getClosestHover(controller)
     if hover ~= self.hover[controller] then
       if hover then
-        self:vibrate(controller, .002)
+        self:vibrate(controller, .25, .002)
         if self.config.onHover then self.config.onHover(entity, controller) end
       end
 
@@ -122,9 +139,9 @@ function layout:update(dt)
           local isTouched = false
 
           if directions[tool.button] then
-            isTouched = controller:isTouched('touchpad') and self:getTouchpadDirection(controller) == tool.button
+            isTouched = lovr.headset.isTouched(controller, 'touchpad') and self:getTouchpadDirection(controller) == tool.button
           else
-            isTouched = controller:isTouched(tool.button)
+            isTouched = lovr.headset.isTouched(controller, tool.button)
           end
 
           self.toolHoverTimes[controller] = self.toolHoverTimes[controller] or {}
@@ -132,6 +149,10 @@ function layout:update(dt)
         end
       end
     end
+  end
+
+  if #self.controllers ~= #lovr.headset.getHands() then
+    self:refreshControllers()
   end
 end
 
@@ -173,7 +194,7 @@ function layout:controllerpressed(controller, rawButton)
         elseif otherFocus.tool.stop then
           otherFocus.tool:stop(controller, otherFocus.entity)
         end
-      elseif not otherController or not otherController:isDown(rawButton) or otherButton ~= button then
+      elseif not otherController or not lovr.headset.isDown(otherController, rawButton) or otherButton ~= button then
         return
       end
     elseif self.focus[controller] and self.focus[controller].tool.twoHanded then
@@ -185,17 +206,17 @@ function layout:controllerpressed(controller, rawButton)
     -- TODO is this weird
     if tool.continuous then
       self.focus[controller] = { tool = tool, entity = entity }
-      self:vibrate(controller, .003)
+      self:vibrate(controller, .25, .003)
 
       if tool.twoHanded then
         self.focus[otherController] = self.focus[controller]
-        self:vibrate(otherController, .003)
+        self:vibrate(otherController, .25, .003)
       end
 
       if tool.start then tool:start(controller, entity) end
     else
       if tool.use then tool:use(controller, entity) end
-      self:vibrate(controller, .003)
+      self:vibrate(controller, .25, .003)
     end
   end
 
@@ -247,10 +268,10 @@ function layout:controllerremoved(controller)
 end
 
 function layout:refreshControllers()
-  self.controllers = lovr.headset.getControllers()
+  self.controllers = lovr.headset.getHands()
   for i, controller in ipairs(self.controllers) do
     self.controllers[controller] = self.controllers[3 - i]
-    self.controllerModels[controller] = controller:newModel()
+    self.controllerModels[controller] = lovr.headset.newModel(controller)
   end
 end
 
@@ -258,7 +279,7 @@ function layout:drawControllers()
   lovr.graphics.setColor(1, 1, 1)
   for i, controller in ipairs(self.controllers) do
     if self.controllerModels[controller] then
-      local x, y, z, angle, ax, ay, az = controller:getPose()
+      local x, y, z, angle, ax, ay, az = lovr.headset.getPose(controller)
       self.controllerModels[controller]:draw(x, y, z, 1, angle, ax, ay, az)
     end
   end
@@ -269,14 +290,14 @@ function layout:getOtherController(controller)
 end
 
 function layout:getTouchpadDirection(controller)
-  local touchx, touchy = controller:getAxis('touchx'), controller:getAxis('touchy')
+  local touchx, touchy = lovr.headset.getAxis(controller, 'touchpad')
   local angle, distance = math.atan2(touchy, touchx), math.sqrt(touchx * touchx + touchy * touchy)
   angle = math.floor((angle % (2 * math.pi) + (math.pi / 4)) / (math.pi / 2))
   return ({ [0] = 'right', [1] = 'up', [2] = 'left', [3] = 'down' })[angle] or 'right'
 end
 
 function layout:vibrate(controller, ...)
-  if self.config.haptics then controller:vibrate(...) end
+  if self.config.haptics then lovr.headset.vibrate(controller, ...) end
 end
 
 ----------------
@@ -284,8 +305,8 @@ end
 ----------------
 function layout:getCursorPosition(controller)
   local offset = .075
-  local x, y, z = controller:getPosition()
-  local ox, oy, oz = lovr.math.orientationToDirection(controller:getOrientation())
+  local x, y, z = lovr.headset.getPosition(controller)
+  local ox, oy, oz = quat(lovr.headset.getOrientation(controller)):direction():unpack()
   return x + ox * offset, y + oy * offset, z + oz * offset
 end
 
@@ -337,7 +358,7 @@ function layout:removeEntity(entity)
   self:dirty()
 end
 
-local transform = lovr.math.newTransform()
+local transform = lovr.math.newMat4()
 function layout:isHovered(entity, controller, includeLocked, includeFocused)
 
   -- Currently if a controller is focusing on an entity then it can't hover over other entities.
@@ -360,13 +381,13 @@ function layout:isHovered(entity, controller, includeLocked, includeFocused)
   minx, maxx, miny, maxy, minz, maxz = addMinimumBuffer(minx, maxx, miny, maxy, minz, maxz, t.scale)
   local cx, cy, cz = (minx + maxx) / 2 * t.scale, (miny + maxy) / 2 * t.scale, (minz + maxz) / 2 * t.scale
   minx, maxx, miny, maxy, minz, maxz = t.x + minx * t.scale, t.x + maxx * t.scale, t.y + miny * t.scale, t.y + maxy * t.scale, t.z + minz * t.scale, t.z + maxz * t.scale
-  transform:origin()
+  transform:identity()
   transform:translate(t.x, t.y, t.z)
   transform:translate(cx, cy, cz)
   transform:rotate(-t.angle, t.ax, t.ay, t.az)
   transform:translate(-cx, -cy, -cz)
   local x, y, z = self:getCursorPosition(controller)
-  x, y, z = transform:transformPoint(x - t.x, y - t.y, z - t.z)
+  x, y, z = transform:mul(vec3(x - t.x, y - t.y, z - t.z)):unpack()
   return x >= minx and x <= maxx and y >= miny and y <= maxy and z >= minz and z <= maxz
 end
 
@@ -380,10 +401,10 @@ function layout:isFocused(entity, controller)
   return false
 end
 
-local q = maf.quat()
-local rot = maf.quat()
-local v = maf.vec3()
 function layout:applyInertia(entity, dt)
+  local q = quat()
+  local rot = quat()
+  local v = vec3()
   if not self.config.inertia then return end
 
   entity.x = entity.x + entity.vx * dt
@@ -394,9 +415,9 @@ function layout:applyInertia(entity, dt)
   v:set(entity.vax, entity.vay, entity.vaz)
   local angle = v:length() * dt
   local axis = v:normalize()
-  rot:angleAxis(angle, axis)
-  q:angleAxis(entity.angle, entity.ax, entity.ay, entity.az):mul(rot)
-  entity.angle, entity.ax, entity.ay, entity.az = q:getAngleAxis()
+  rot:set(angle, axis:unpack())
+  q:set(entity.angle, entity.ax, entity.ay, entity.az):mul(rot)
+  entity.angle, entity.ax, entity.ay, entity.az = q:unpack()
 
   local function lerp(x, y, t) return x + (y - x) * t end
   local function decay(x, t) return lerp(x, 0, 1 - math.exp(-t * dt)) end
@@ -470,7 +491,7 @@ function layout:loadModels()
         local filename = path .. '/' .. file
         if lovr.filesystem.isDirectory(filename) then
           halp(filename)
-        elseif file:match('%.obj$') or filename:match('%.gltf$') then
+        elseif file:match('%.obj$') or filename:match('%.gltf$') or filename:match('%.glb$') then
           self.models[filename] = lovr.graphics.newModel(filename)
           table.insert(self.models, filename)
         end
@@ -511,12 +532,12 @@ function layout:drawToolUI()
         local context = entity and 'hover' or 'default'
 
         if tool.context == context then
-          local x, y, z, angle, ax, ay, az = controller:getPose()
+          local x, y, z, angle, ax, ay, az = lovr.headset.getPose(controller)
           lovr.graphics.push()
           lovr.graphics.transform(x, y, z)
           lovr.graphics.rotate(angle, ax, ay, az)
           lovr.graphics.rotate(-math.pi / 2, 1, 0, 0) -- Make plane parallel to touchpad
-          if lovr.headset.getType() == 'vive' then
+          if false and lovr.headset.getType() == 'vive' then
             lovr.graphics.translate(0, -.048, 0)
             lovr.graphics.rotate(.1, 1, 0, 0)
           end
