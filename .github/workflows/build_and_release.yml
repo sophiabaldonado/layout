@@ -22,10 +22,12 @@ jobs:
           cd src
           zip -0qr layout.lovr .
           cat ../layout/lovr.exe layout.lovr > ../layout/layout.exe
-          cd ..
-          rm layout/lovr.exe
-          cd layout
+          cd ../layout
+          rm lovr.exe
           zip -9qr layout.zip .
+
+      - name: Set version number
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
 
       - name: Create release
         id: create_release
@@ -33,10 +35,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Layout ${{ github.ref }}
+          tag_name: ${{ $VERSION }}
+          release_name: Layout ${{ $VERSION }}
           body: |
-            Layout release version ${{ github.ref }}
+            Layout release version ${{ $VERSION }}
           draft: false
           prerelease: false
 
