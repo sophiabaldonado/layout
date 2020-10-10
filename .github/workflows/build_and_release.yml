@@ -20,17 +20,15 @@ jobs:
       - name: Fetch lovr exe
         run: |
           curl https://lovr.org/download -L -o lovr.zip
-          unzip lovr.zip
+          unzip lovr.zip -d layout
 
       - name: Package Layout
         run: |
           cd src
-          zip -9qr layout.lovr .
-          cat ../lovr/lovr.exe layout.lovr > layout.exe
+          zip -0qr layout.lovr .
+          cat ../layout/lovr.exe layout.lovr > ../layout/layout.exe
           cd ..
-          rm lovr/lovr.exe
-          mv src/layout.exe lovr/
-          mv lovr/ layout/
+          rm layout/lovr.exe
           zip -9qr layout.zip layout/
 
       - name: Create release
