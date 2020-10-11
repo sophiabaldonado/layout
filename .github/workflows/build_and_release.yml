@@ -27,6 +27,7 @@ jobs:
           zip -9qr layout.zip .
 
       - name: Set version number
+        id: set_version
         run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
 
       - name: Create release
@@ -35,10 +36,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ $VERSION }}
-          release_name: Layout ${{ $VERSION }}
+          tag_name: ${{ steps.set_version.outputs.VERSION }}
+          release_name: Layout ${{ steps.set_version.outputs.VERSION }}
           body: |
-            Layout release version ${{ $VERSION }}
+            Layout release version ${{ steps.set_version.outputs.VERSION }}
           draft: false
           prerelease: false
 
